@@ -27,18 +27,15 @@ async function fetchDollarRates(): Promise<void> {
        VALUES ($id, $pair, $buyRate, $sellRate, $source, datetime('now'))`,
     );
 
-    // Single transaction for all inserts — avoids SQLITE_BUSY on Windows
-    db.transaction(() => {
-      for (const rate of data) {
-        insertRate.run({
-          id: `usd_ars_${rate.casa}`,
-          pair: "USD/ARS",
-          buyRate: rate.compra,
-          sellRate: rate.venta,
-          source: rate.casa,
-        });
-      }
-    })();
+    for (const rate of data) {
+      insertRate.run({
+        id: `usd_ars_${rate.casa}`,
+        pair: "USD/ARS",
+        buyRate: rate.compra,
+        sellRate: rate.venta,
+        source: rate.casa,
+      });
+    }
 
     console.log(`[Rates] Updated ${data.length} exchange rates`);
   } catch (err) {

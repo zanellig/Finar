@@ -1,10 +1,8 @@
 import { Database } from "bun:sqlite";
 
 export function initializeSchema(db: Database): void {
-  db.exec("PRAGMA journal_mode = WAL;");
-  db.exec("PRAGMA busy_timeout = 5000;");
-  db.exec("PRAGMA synchronous = NORMAL;");
-  db.exec("PRAGMA foreign_keys = ON;");
+  db.run("PRAGMA journal_mode = WAL;");
+  db.run("PRAGMA foreign_keys = ON;");
 
   db.run(`
     CREATE TABLE IF NOT EXISTS entities (
