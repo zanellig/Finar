@@ -7,6 +7,7 @@ import { getAccountsRoutes } from "./api/accounts";
 import { getPaymentsRoutes } from "./api/payments";
 import { getRatesRoutes, startRatesFetcher } from "./api/rates";
 import { getDashboardRoutes } from "./api/dashboard";
+import { getDbPath } from "./db/database";
 
 // --compile implies --production, which replaces NODE_ENV at bundle time
 const isDev = process.env.NODE_ENV !== "production";
@@ -41,6 +42,7 @@ const server = Bun.serve({
 });
 
 console.log(`🏦 Finance Tracker running at ${server.url}`);
+console.log(`📂 Database: ${getDbPath()}`);
 
 // Auto-open dashboard in default browser (production only)
 if (!isDev) {
