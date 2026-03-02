@@ -8,6 +8,9 @@ import { getPaymentsRoutes } from "./api/payments";
 import { getRatesRoutes, startRatesFetcher } from "./api/rates";
 import { getDashboardRoutes } from "./api/dashboard";
 
+// --compile implies --production, which replaces NODE_ENV at bundle time
+const isDev = process.env.NODE_ENV !== "production";
+
 // Start periodic rate fetching
 startRatesFetcher();
 
@@ -25,7 +28,6 @@ const server = Bun.serve({
     ...getDashboardRoutes(),
   },
   fetch(req) {
-    // Fallback: serve the SPA for any non-API route
     const url = new URL(req.url);
     if (!url.pathname.startsWith("/api/")) {
       return new Response(null, {
@@ -35,25 +37,20 @@ const server = Bun.serve({
     }
     return Response.json({ error: "Not found" }, { status: 404 });
   },
-  development: {
-    hmr: true,
-    console: true,
-  },
+  development: isDev ? { hmr: true, console: true } : false,
 });
 
 console.log(`🏦 Finance Tracker running at ${server.url}`);
 
-// Auto-open dashboard in default browser
-function openBrowser(url: string) {
+// Auto-open dashboard in default browser (production only)
+if (!isDev) {
   const cmds: Record<string, string[]> = {
-    linux: ["xdg-open", url],
-    darwin: ["open", url],
-    win32: ["cmd", "/c", "start", url],
+    linux: ["xdg-open", server.url.href],
+    darwin: ["open", server.url.href],
+    win32: ["cmd", "/c", "start", server.url.href],
   };
   const cmd = cmds[process.platform];
   if (cmd) {
     Bun.spawn(cmd, { stdout: "ignore", stderr: "ignore" });
   }
 }
-
-openBrowser(server.url.href);
