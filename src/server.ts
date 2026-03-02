@@ -42,3 +42,18 @@ const server = Bun.serve({
 });
 
 console.log(`🏦 Finance Tracker running at ${server.url}`);
+
+// Auto-open dashboard in default browser
+function openBrowser(url: string) {
+  const cmds: Record<string, string[]> = {
+    linux: ["xdg-open", url],
+    darwin: ["open", url],
+    win32: ["cmd", "/c", "start", url],
+  };
+  const cmd = cmds[process.platform];
+  if (cmd) {
+    Bun.spawn(cmd, { stdout: "ignore", stderr: "ignore" });
+  }
+}
+
+openBrowser(server.url.href);
