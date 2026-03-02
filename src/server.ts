@@ -49,7 +49,7 @@ if (!isDev) {
   const cmds: Record<string, string[]> = {
     linux: ["xdg-open", server.url.href],
     darwin: ["open", server.url.href],
-    win32: ["cmd", "/c", "start", server.url.href],
+    win32: ["cmd", "/c", "start", "", server.url.href],
   };
   const cmd = cmds[process.platform];
   if (cmd) {
