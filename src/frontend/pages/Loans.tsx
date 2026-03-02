@@ -30,12 +30,9 @@ export function Loans() {
 
   async function loadData() {
     try {
-      const [loansData, entitiesData] = await Promise.all([
-        api.getLoans(),
-        api.getEntities(),
-      ]);
-      setLoans(loansData);
-      setEntities(entitiesData);
+      const [l, e] = await Promise.all([api.getLoans(), api.getEntities()]);
+      setLoans(l);
+      setEntities(e);
     } catch (err: any) {
       addToast(err.message, "error");
     } finally {
@@ -54,19 +51,16 @@ export function Loans() {
     setShowModal(true);
   }
 
-  // Preview calculation
   function getPreview() {
     const capital = parseFloat(form.capital);
-    const installments = parseInt(form.installments);
+    const inst = parseInt(form.installments);
     const cftea = parseFloat(form.cftea);
-    if (!capital || !installments || !cftea) return null;
-
-    const cftDecimal = cftea / 100;
-    const totalOwed = capital * Math.pow(1 + cftDecimal, installments / 12);
-    const monthlyPayment = totalOwed / installments;
+    if (!capital || !inst || !cftea) return null;
+    const totalOwed = capital * Math.pow(1 + cftea / 100, inst / 12);
+    const monthly = totalOwed / inst;
     return {
       totalOwed: Math.round(totalOwed * 100) / 100,
-      monthlyPayment: Math.round(monthlyPayment * 100) / 100,
+      monthlyPayment: Math.round(monthly * 100) / 100,
       totalInterest: Math.round((totalOwed - capital) * 100) / 100,
     };
   }
@@ -104,7 +98,6 @@ export function Loans() {
   }
 
   const preview = getPreview();
-
   if (loading) return <LoadingPage />;
 
   return (
@@ -113,11 +106,10 @@ export function Loans() {
         <div>
           <h1 className="page-title">Préstamos</h1>
           <p className="page-subtitle">
-            Registrá y gestioná tus préstamos personales
+            registrá y gestioná tus préstamos personales
           </p>
         </div>
         <button
-          id="create-loan-btn"
           className="btn btn-primary"
           onClick={openCreate}
           disabled={entities.length === 0}
@@ -129,20 +121,18 @@ export function Loans() {
       {entities.length === 0 && (
         <div
           className="card mb-6"
-          style={{
-            borderColor: "var(--accent-warning)",
-            background: "var(--accent-warning-muted)",
-          }}
+          style={{ borderColor: "var(--yellow)", borderLeftWidth: 3 }}
         >
-          <p style={{ color: "var(--accent-warning)", fontWeight: 600 }}>
-            ⚠️ Primero necesitás crear una entidad para poder registrar
-            préstamos.
+          <p
+            style={{ color: "var(--yellow)", fontSize: "var(--font-size-sm)" }}
+          >
+            Primero necesitás crear una entidad para registrar préstamos.
           </p>
         </div>
       )}
 
       {loans.length === 0 ? (
-        <EmptyState icon="📋" text="No hay préstamos registrados" />
+        <EmptyState icon="▸" text="No hay préstamos registrados" />
       ) : (
         <div className="card">
           <table className="data-table">
@@ -161,13 +151,15 @@ export function Loans() {
             <tbody>
               {loans.map((loan) => (
                 <tr key={loan.id}>
-                  <td style={{ fontWeight: 600 }}>{loan.name}</td>
+                  <td style={{ fontWeight: 600, color: "var(--white-90)" }}>
+                    {loan.name}
+                  </td>
                   <td>
                     <span className="badge badge-primary">
                       {loan.entity_name}
                     </span>
                   </td>
-                  <td style={{ textAlign: "right" }}>
+                  <td className="font-mono" style={{ textAlign: "right" }}>
                     {formatCurrency(loan.capital)}
                   </td>
                   <td style={{ textAlign: "right" }}>
@@ -175,11 +167,19 @@ export function Loans() {
                       {formatPercent(loan.cftea)}
                     </span>
                   </td>
-                  <td style={{ textAlign: "right", fontWeight: 600 }}>
+                  <td
+                    className="font-mono"
+                    style={{
+                      textAlign: "right",
+                      fontWeight: 600,
+                      color: "var(--white-90)",
+                    }}
+                  >
                     {formatCurrency(loan.monthly_payment)}
                   </td>
                   <td
-                    style={{ textAlign: "right", color: "var(--text-muted)" }}
+                    className="font-mono"
+                    style={{ textAlign: "right", color: "var(--white-30)" }}
                   >
                     {formatCurrency(loan.total_owed)}
                   </td>
@@ -196,7 +196,7 @@ export function Loans() {
                       onClick={() => handleDelete(loan.id)}
                       title="Eliminar"
                     >
-                      🗑️
+                      ×
                     </button>
                   </td>
                 </tr>
@@ -232,7 +232,6 @@ export function Loans() {
           <div className="form-group">
             <label className="form-label">Entidad</label>
             <select
-              id="loan-entity-select"
               className="form-select"
               value={form.entity_id}
               onChange={(e) => setForm({ ...form, entity_id: e.target.value })}
@@ -249,10 +248,9 @@ export function Loans() {
           <div className="form-group">
             <label className="form-label">Nombre / Descripción</label>
             <input
-              id="loan-name-input"
               className="form-input"
               type="text"
-              placeholder="Ej: Préstamo personal"
+              placeholder="Préstamo personal"
               value={form.name}
               onChange={(e) => setForm({ ...form, name: e.target.value })}
               required
@@ -260,9 +258,8 @@ export function Loans() {
           </div>
           <div className="form-row">
             <div className="form-group">
-              <label className="form-label">Capital prestado ($)</label>
+              <label className="form-label">Capital ($)</label>
               <input
-                id="loan-capital-input"
                 className="form-input"
                 type="number"
                 min="0.01"
@@ -276,7 +273,6 @@ export function Loans() {
             <div className="form-group">
               <label className="form-label">Cuotas</label>
               <input
-                id="loan-installments-input"
                 className="form-input"
                 type="number"
                 min="1"
@@ -293,7 +289,6 @@ export function Loans() {
           <div className="form-group">
             <label className="form-label">CFTEA (%)</label>
             <input
-              id="loan-cftea-input"
               className="form-input"
               type="number"
               min="0.01"
@@ -310,46 +305,69 @@ export function Loans() {
 
           {preview && (
             <div
-              className="card"
               style={{
-                background: "var(--bg-input)",
-                border: "1px solid var(--border-color)",
+                background: "var(--black)",
+                border: "1px solid var(--white-06)",
+                borderRadius: "var(--radius-md)",
+                padding: "var(--space-4)",
               }}
             >
               <div
+                className="font-mono"
                 style={{
-                  fontSize: "var(--font-size-sm)",
-                  fontWeight: 600,
-                  color: "var(--text-secondary)",
+                  fontSize: "var(--font-size-xs)",
+                  color: "var(--white-30)",
                   marginBottom: "var(--space-3)",
+                  textTransform: "uppercase",
+                  letterSpacing: "0.08em",
                 }}
               >
-                Vista previa del préstamo
+                preview
               </div>
               <div className="flex justify-between mb-4">
-                <span style={{ color: "var(--text-muted)" }}>
-                  Cuota mensual:
+                <span
+                  style={{
+                    color: "var(--white-30)",
+                    fontSize: "var(--font-size-sm)",
+                  }}
+                >
+                  Cuota mensual
                 </span>
-                <span style={{ fontWeight: 700 }}>
+                <span
+                  className="font-mono"
+                  style={{ fontWeight: 700, color: "var(--green)" }}
+                >
                   {formatCurrency(preview.monthlyPayment)}
                 </span>
               </div>
               <div className="flex justify-between mb-4">
-                <span style={{ color: "var(--text-muted)" }}>
-                  Total a pagar:
+                <span
+                  style={{
+                    color: "var(--white-30)",
+                    fontSize: "var(--font-size-sm)",
+                  }}
+                >
+                  Total a pagar
                 </span>
                 <span
-                  style={{ fontWeight: 700, color: "var(--accent-danger)" }}
+                  className="font-mono"
+                  style={{ fontWeight: 700, color: "var(--red)" }}
                 >
                   {formatCurrency(preview.totalOwed)}
                 </span>
               </div>
               <div className="flex justify-between">
-                <span style={{ color: "var(--text-muted)" }}>
-                  Interés total:
+                <span
+                  style={{
+                    color: "var(--white-30)",
+                    fontSize: "var(--font-size-sm)",
+                  }}
+                >
+                  Interés total
                 </span>
                 <span
-                  style={{ fontWeight: 700, color: "var(--accent-warning)" }}
+                  className="font-mono"
+                  style={{ fontWeight: 700, color: "var(--yellow)" }}
                 >
                   {formatCurrency(preview.totalInterest)}
                 </span>
@@ -358,7 +376,6 @@ export function Loans() {
           )}
         </form>
       </Modal>
-
       <ToastContainer />
     </div>
   );

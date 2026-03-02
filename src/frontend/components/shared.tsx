@@ -39,7 +39,7 @@ export function Modal({
             onClick={onClose}
             aria-label="Close"
           >
-            ✕
+            ×
           </button>
         </div>
         <div className="modal-body">{children}</div>
@@ -98,27 +98,27 @@ export function formatPercent(value: number): string {
 
 export function entityTypeLabel(type: string): string {
   const labels: Record<string, string> = {
-    bank: "Banco",
-    wallet: "Billetera Virtual",
-    asset_manager: "Sociedad de Bolsa",
+    bank: "banco",
+    wallet: "billetera",
+    asset_manager: "soc. de bolsa",
   };
   return labels[type] || type;
 }
 
 export function entityTypeIcon(type: string): string {
   const icons: Record<string, string> = {
-    bank: "🏦",
-    wallet: "📱",
-    asset_manager: "📈",
+    bank: "B",
+    wallet: "W",
+    asset_manager: "A",
   };
-  return icons[type] || "🏢";
+  return icons[type] || "E";
 }
 
 export function accountTypeLabel(type: string): string {
   const labels: Record<string, string> = {
-    savings: "Caja de Ahorro",
-    checking: "Cuenta Corriente",
-    interest: "Cuenta Remunerada",
+    savings: "caja de ahorro",
+    checking: "cuenta corriente",
+    interest: "remunerada",
   };
   return labels[type] || type;
 }

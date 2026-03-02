@@ -82,7 +82,6 @@ export function Payments() {
 
   const targets = form.type === "loan" ? loans : cards;
   const selectedAccount = accounts.find((a: any) => a.id === form.account_id);
-
   if (loading) return <LoadingPage />;
 
   return (
@@ -91,7 +90,7 @@ export function Payments() {
         <div>
           <h1 className="page-title">Pagos</h1>
           <p className="page-subtitle">
-            Registrá pagos de préstamos y tarjetas
+            registrá pagos de préstamos y tarjetas
           </p>
         </div>
         <button
@@ -109,20 +108,18 @@ export function Payments() {
         (loans.length === 0 && cards.length === 0)) && (
         <div
           className="card mb-6"
-          style={{
-            borderColor: "var(--accent-warning)",
-            background: "var(--accent-warning-muted)",
-          }}
+          style={{ borderColor: "var(--yellow)", borderLeftWidth: 3 }}
         >
-          <p style={{ color: "var(--accent-warning)", fontWeight: 600 }}>
-            ⚠️ Necesitás al menos una cuenta y un préstamo o tarjeta para
-            registrar pagos.
+          <p
+            style={{ color: "var(--yellow)", fontSize: "var(--font-size-sm)" }}
+          >
+            Necesitás al menos una cuenta y un préstamo o tarjeta.
           </p>
         </div>
       )}
 
       {payments.length === 0 ? (
-        <EmptyState icon="💸" text="No hay pagos registrados" />
+        <EmptyState icon="↗" text="No hay pagos registrados" />
       ) : (
         <div className="card">
           <table className="data-table">
@@ -132,27 +129,38 @@ export function Payments() {
                 <th>Tipo</th>
                 <th>Destino</th>
                 <th>Descripción</th>
-                <th>Cuenta origen</th>
+                <th>Cuenta</th>
                 <th style={{ textAlign: "right" }}>Monto</th>
               </tr>
             </thead>
             <tbody>
               {payments.map((p: any) => (
                 <tr key={p.id}>
-                  <td>{new Date(p.created_at).toLocaleDateString("es-AR")}</td>
+                  <td className="font-mono">
+                    {new Date(p.created_at).toLocaleDateString("es-AR")}
+                  </td>
                   <td>
                     <span
                       className={`badge ${p.type === "loan" ? "badge-danger" : "badge-purple"}`}
                     >
-                      {p.type === "loan" ? "Préstamo" : "Tarjeta"}
+                      {p.type === "loan" ? "préstamo" : "tarjeta"}
                     </span>
                   </td>
-                  <td style={{ fontWeight: 600 }}>{p.target_name}</td>
-                  <td style={{ color: "var(--text-muted)" }}>
+                  <td style={{ fontWeight: 600, color: "var(--white-90)" }}>
+                    {p.target_name}
+                  </td>
+                  <td style={{ color: "var(--white-30)" }}>
                     {p.description || "—"}
                   </td>
                   <td>{p.account_name}</td>
-                  <td style={{ textAlign: "right", fontWeight: 700 }}>
+                  <td
+                    className="font-mono"
+                    style={{
+                      textAlign: "right",
+                      fontWeight: 700,
+                      color: "var(--white-90)",
+                    }}
+                  >
                     {formatCurrency(p.amount, p.account_currency)}
                   </td>
                 </tr>
@@ -179,14 +187,14 @@ export function Payments() {
               onClick={handleSubmit}
               disabled={submitting}
             >
-              {submitting ? "Registrando..." : "Registrar Pago"}
+              {submitting ? "..." : "Registrar"}
             </button>
           </>
         }
       >
         <form onSubmit={handleSubmit}>
           <div className="form-group">
-            <label className="form-label">Tipo de pago</label>
+            <label className="form-label">Tipo</label>
             <select
               className="form-select"
               value={form.type}
@@ -213,7 +221,7 @@ export function Payments() {
                 <option key={t.id} value={t.id}>
                   {t.name} — {t.entity_name || ""}
                   {form.type === "loan"
-                    ? ` (${t.remaining_installments} cuotas restantes)`
+                    ? ` (${t.remaining_installments} cuotas)`
                     : ""}
                 </option>
               ))}
@@ -237,14 +245,14 @@ export function Payments() {
             </select>
             {selectedAccount && (
               <span className="form-hint">
-                Saldo disponible:{" "}
+                saldo:{" "}
                 {formatCurrency(
                   selectedAccount.balance,
                   selectedAccount.currency,
                 )}
                 {selectedAccount.type === "checking" &&
                   selectedAccount.overdraft_limit > 0 &&
-                  ` (descubierto: ${formatCurrency(selectedAccount.overdraft_limit)})`}
+                  ` · desc: ${formatCurrency(selectedAccount.overdraft_limit)}`}
               </span>
             )}
           </div>
@@ -266,7 +274,7 @@ export function Payments() {
             <input
               className="form-input"
               type="text"
-              placeholder="Ej: Cuota 3/12"
+              placeholder="Cuota 3/12"
               value={form.description}
               onChange={(e) =>
                 setForm({ ...form, description: e.target.value })

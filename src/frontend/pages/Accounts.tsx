@@ -24,6 +24,12 @@ const defaultForm = {
   tna_rate: "",
 };
 
+const typeLetters: Record<string, string> = {
+  savings: "S",
+  checking: "C",
+  interest: "R",
+};
+
 export function Accounts() {
   const [accounts, setAccounts] = useState<any[]>([]);
   const [entities, setEntities] = useState<any[]>([]);
@@ -136,7 +142,7 @@ export function Accounts() {
       <div className="page-header">
         <div>
           <h1 className="page-title">Cuentas</h1>
-          <p className="page-subtitle">Tus cuentas bancarias y de inversión</p>
+          <p className="page-subtitle">cuentas bancarias y de inversión</p>
         </div>
         <button
           className="btn btn-primary"
@@ -150,57 +156,51 @@ export function Accounts() {
       {entities.length === 0 && (
         <div
           className="card mb-6"
-          style={{
-            borderColor: "var(--accent-warning)",
-            background: "var(--accent-warning-muted)",
-          }}
+          style={{ borderColor: "var(--yellow)", borderLeftWidth: 3 }}
         >
-          <p style={{ color: "var(--accent-warning)", fontWeight: 600 }}>
-            ⚠️ Primero creá una entidad.
+          <p
+            style={{ color: "var(--yellow)", fontSize: "var(--font-size-sm)" }}
+          >
+            Primero creá una entidad.
           </p>
         </div>
       )}
 
       {accounts.length === 0 ? (
-        <EmptyState icon="🏧" text="No hay cuentas registradas" />
+        <EmptyState icon="▤" text="No hay cuentas registradas" />
       ) : (
         <div
           style={{
             display: "flex",
             flexDirection: "column",
-            gap: "var(--space-6)",
+            gap: "var(--space-4)",
           }}
         >
           {Object.keys(grouped).map((entityName) => (
             <div key={entityName} className="card">
-              <h3
+              <div
+                className="font-mono"
                 style={{
-                  fontWeight: 700,
-                  fontSize: "var(--font-size-lg)",
+                  fontSize: "var(--font-size-xs)",
+                  color: "var(--white-30)",
+                  textTransform: "uppercase",
+                  letterSpacing: "0.08em",
                   marginBottom: "var(--space-4)",
                 }}
               >
-                🏦 {entityName}
-              </h3>
+                {entityName}
+              </div>
               {grouped[entityName].map((acct: any) => (
                 <div key={acct.id} className="list-item">
                   <div className="list-item-info">
                     <div
                       className="list-item-icon"
                       style={{
-                        background:
-                          acct.type === "savings"
-                            ? "var(--accent-primary-muted)"
-                            : acct.type === "checking"
-                              ? "var(--accent-warning-muted)"
-                              : "var(--accent-success-muted)",
+                        background: "var(--green-06)",
+                        color: "var(--green)",
                       }}
                     >
-                      {acct.type === "savings"
-                        ? "🏧"
-                        : acct.type === "checking"
-                          ? "📋"
-                          : "📈"}
+                      {typeLetters[acct.type] || "?"}
                     </div>
                     <div className="list-item-details">
                       <div className="list-item-title">
@@ -218,24 +218,18 @@ export function Accounts() {
                           {accountTypeLabel(acct.type)}
                         </span>
                         {acct.is_salary_account === 1 && (
-                          <span
-                            className="badge badge-success"
-                            style={{ marginLeft: 4 }}
-                          >
-                            Sueldo
-                          </span>
+                          <span className="badge badge-success">sueldo</span>
                         )}
                         {acct.type === "checking" &&
                           acct.overdraft_limit > 0 && (
                             <span
+                              className="font-mono"
                               style={{
-                                fontSize: "var(--font-size-xs)",
-                                color: "var(--text-muted)",
-                                marginLeft: 8,
+                                fontSize: "10px",
+                                color: "var(--white-15)",
                               }}
                             >
-                              Descubierto:{" "}
-                              {formatCurrency(acct.overdraft_limit)}
+                              desc. {formatCurrency(acct.overdraft_limit)}
                             </span>
                           )}
                       </div>
@@ -251,13 +245,13 @@ export function Accounts() {
                       className="btn btn-ghost btn-sm"
                       onClick={() => openEdit(acct)}
                     >
-                      ✏️
+                      edit
                     </button>
                     <button
                       className="btn btn-ghost btn-sm"
                       onClick={() => handleDelete(acct.id)}
                     >
-                      🗑️
+                      ×
                     </button>
                   </div>
                 </div>
@@ -284,11 +278,7 @@ export function Accounts() {
               onClick={handleSubmit}
               disabled={submitting}
             >
-              {submitting
-                ? "Guardando..."
-                : editingAccount
-                  ? "Guardar"
-                  : "Crear"}
+              {submitting ? "..." : editingAccount ? "Guardar" : "Crear"}
             </button>
           </>
         }
@@ -305,7 +295,7 @@ export function Accounts() {
                 }
                 required
               >
-                <option value="">Seleccioná una entidad</option>
+                <option value="">Seleccioná...</option>
                 {entities.map((e) => (
                   <option key={e.id} value={e.id}>
                     {e.name}
@@ -320,7 +310,7 @@ export function Accounts() {
               <input
                 className="form-input"
                 type="text"
-                placeholder="Ej: CA en pesos"
+                placeholder="CA en pesos"
                 value={form.name}
                 onChange={(e) => setForm({ ...form, name: e.target.value })}
                 required
@@ -334,9 +324,9 @@ export function Accounts() {
                 onChange={(e) => setForm({ ...form, type: e.target.value })}
                 disabled={!!editingAccount}
               >
-                <option value="savings">🏧 Caja de Ahorro</option>
-                <option value="checking">📋 Cuenta Corriente</option>
-                <option value="interest">📈 Cuenta Remunerada</option>
+                <option value="savings">Caja de Ahorro</option>
+                <option value="checking">Cuenta Corriente</option>
+                <option value="interest">Cuenta Remunerada</option>
               </select>
             </div>
           </div>
@@ -360,14 +350,14 @@ export function Accounts() {
                 onChange={(e) => setForm({ ...form, currency: e.target.value })}
                 disabled={!!editingAccount}
               >
-                <option value="ARS">🇦🇷 ARS</option>
-                <option value="USD">🇺🇸 USD</option>
+                <option value="ARS">ARS</option>
+                <option value="USD">USD</option>
               </select>
             </div>
           </div>
           {(form.type === "savings" || form.type === "interest") && (
             <div className="form-group">
-              <label className="form-label">Límite extracción diaria</label>
+              <label className="form-label">Ext. diaria ($)</label>
               <input
                 className="form-input"
                 type="number"
@@ -391,13 +381,11 @@ export function Accounts() {
                     setForm({ ...form, is_salary_account: e.target.checked })
                   }
                 />
-                <span>Cuenta sueldo (sin mantenimiento)</span>
+                <span>Cuenta sueldo</span>
               </label>
               {!form.is_salary_account && (
                 <div className="form-group">
-                  <label className="form-label">
-                    Mantenimiento mensual ($)
-                  </label>
+                  <label className="form-label">Mantenimiento $/m</label>
                   <input
                     className="form-input"
                     type="number"
@@ -414,7 +402,7 @@ export function Accounts() {
                 </div>
               )}
               <div className="form-group">
-                <label className="form-label">Límite descubierto ($)</label>
+                <label className="form-label">Descubierto ($)</label>
                 <input
                   className="form-input"
                   type="number"
@@ -441,7 +429,7 @@ export function Accounts() {
                 onChange={(e) => setForm({ ...form, tna_rate: e.target.value })}
               />
               <span className="form-hint">
-                Tasa nominal anual de referencia
+                tasa nominal anual de referencia
               </span>
             </div>
           )}

@@ -40,12 +40,12 @@ export function CreditCards() {
 
   async function loadData() {
     try {
-      const [cardsData, entitiesData] = await Promise.all([
+      const [c, e] = await Promise.all([
         api.getCreditCards(),
         api.getEntities(),
       ]);
-      setCards(cardsData);
-      setEntities(entitiesData);
+      setCards(c);
+      setEntities(e);
     } catch (err: any) {
       addToast(err.message, "error");
     } finally {
@@ -78,8 +78,7 @@ export function CreditCards() {
 
   async function openDetail(card: any) {
     try {
-      const detail = await api.getCreditCard(card.id);
-      setCardDetail(detail);
+      setCardDetail(await api.getCreditCard(card.id));
       setShowDetailModal(true);
     } catch (err: any) {
       addToast(err.message, "error");
@@ -95,7 +94,7 @@ export function CreditCards() {
         name: cardForm.name,
         spend_limit: parseFloat(cardForm.spend_limit),
       });
-      addToast("Tarjeta de crédito creada");
+      addToast("Tarjeta creada");
       setShowCardModal(false);
       loadData();
     } catch (err: any) {
@@ -129,24 +128,19 @@ export function CreditCards() {
     e.preventDefault();
     if (!selectedCard) return;
     setSubmitting(true);
-
-    const installments = parseInt(spendForm.installments);
+    const inst = parseInt(spendForm.installments);
     const payload: any = {
       description: spendForm.description,
       currency: spendForm.currency,
-      installments,
+      installments: inst,
     };
-
-    if (installments === 1) {
+    if (inst === 1) {
       payload.amount = parseFloat(spendForm.amount);
+    } else if (spendForm.input_mode === "monthly") {
+      payload.monthly_amount = parseFloat(spendForm.monthly_amount);
     } else {
-      if (spendForm.input_mode === "monthly") {
-        payload.monthly_amount = parseFloat(spendForm.monthly_amount);
-      } else {
-        payload.total_amount = parseFloat(spendForm.total_amount);
-      }
+      payload.total_amount = parseFloat(spendForm.total_amount);
     }
-
     try {
       await api.addSpenditure(selectedCard.id, payload);
       addToast("Gasto registrado");
@@ -160,7 +154,7 @@ export function CreditCards() {
   }
 
   async function handleDeleteCard(id: string) {
-    if (!confirm("¿Eliminar esta tarjeta de crédito?")) return;
+    if (!confirm("¿Eliminar esta tarjeta?")) return;
     try {
       await api.deleteCreditCard(id);
       addToast("Tarjeta eliminada");
@@ -171,7 +165,6 @@ export function CreditCards() {
   }
 
   const isInstallment = parseInt(spendForm.installments) > 1;
-
   if (loading) return <LoadingPage />;
 
   return (
@@ -180,11 +173,10 @@ export function CreditCards() {
         <div>
           <h1 className="page-title">Tarjetas de Crédito</h1>
           <p className="page-subtitle">
-            Gestioná tus tarjetas y registrá gastos
+            gestioná tus tarjetas y registrá gastos
           </p>
         </div>
         <button
-          id="create-card-btn"
           className="btn btn-primary"
           onClick={openCreate}
           disabled={entities.length === 0}
@@ -196,25 +188,23 @@ export function CreditCards() {
       {entities.length === 0 && (
         <div
           className="card mb-6"
-          style={{
-            borderColor: "var(--accent-warning)",
-            background: "var(--accent-warning-muted)",
-          }}
+          style={{ borderColor: "var(--yellow)", borderLeftWidth: 3 }}
         >
-          <p style={{ color: "var(--accent-warning)", fontWeight: 600 }}>
-            ⚠️ Primero necesitás crear una entidad para poder registrar
-            tarjetas.
+          <p
+            style={{ color: "var(--yellow)", fontSize: "var(--font-size-sm)" }}
+          >
+            Primero creá una entidad.
           </p>
         </div>
       )}
 
       {cards.length === 0 ? (
-        <EmptyState icon="💳" text="No hay tarjetas registradas" />
+        <EmptyState icon="▬" text="No hay tarjetas registradas" />
       ) : (
         <div
           className="stats-grid"
           style={{
-            gridTemplateColumns: "repeat(auto-fill, minmax(320px, 1fr))",
+            gridTemplateColumns: "repeat(auto-fill, minmax(300px, 1fr))",
           }}
         >
           {cards.map((card, i) => {
@@ -224,11 +214,10 @@ export function CreditCards() {
                 : 0;
             const barColor =
               usage > 80
-                ? "var(--accent-danger)"
+                ? "var(--red)"
                 : usage > 50
-                  ? "var(--accent-warning)"
-                  : "var(--accent-success)";
-
+                  ? "var(--yellow)"
+                  : "var(--green)";
             return (
               <div
                 key={card.id}
@@ -239,41 +228,50 @@ export function CreditCards() {
                     <div
                       style={{
                         fontWeight: 700,
-                        fontSize: "var(--font-size-lg)",
+                        fontSize: "var(--font-size-md)",
                       }}
                     >
                       {card.name}
                     </div>
-                    <span className="badge badge-purple">
+                    <span
+                      className="badge badge-primary"
+                      style={{ marginTop: 4 }}
+                    >
                       {card.entity_name}
                     </span>
                   </div>
                   <div
                     className="list-item-icon"
-                    style={{ background: "var(--accent-purple-muted)" }}
+                    style={{
+                      background: "var(--white-06)",
+                      color: "var(--white-50)",
+                    }}
                   >
-                    💳
+                    CC
                   </div>
                 </div>
-
                 <div style={{ marginTop: "var(--space-4)" }}>
                   <div className="flex justify-between items-center mb-4">
                     <span
+                      className="font-mono"
                       style={{
-                        fontSize: "var(--font-size-sm)",
-                        color: "var(--text-muted)",
+                        fontSize: "var(--font-size-xs)",
+                        color: "var(--white-30)",
+                        textTransform: "uppercase",
+                        letterSpacing: "0.08em",
                       }}
                     >
-                      Disponible
+                      disponible
                     </span>
                     <span
+                      className="font-mono"
                       style={{
                         fontSize: "var(--font-size-2xl)",
-                        fontWeight: 800,
+                        fontWeight: 700,
                         color:
                           card.available_limit > 0
-                            ? "var(--accent-success)"
-                            : "var(--accent-danger)",
+                            ? "var(--green)"
+                            : "var(--red)",
                       }}
                     >
                       {formatCurrency(card.available_limit)}
@@ -289,17 +287,13 @@ export function CreditCards() {
                     />
                   </div>
                   <div
-                    className="flex justify-between"
-                    style={{
-                      fontSize: "var(--font-size-xs)",
-                      color: "var(--text-muted)",
-                    }}
+                    className="flex justify-between font-mono"
+                    style={{ fontSize: "10px", color: "var(--white-30)" }}
                   >
-                    <span>Consumido: {formatCurrency(card.total_spent)}</span>
-                    <span>Límite: {formatCurrency(card.spend_limit)}</span>
+                    <span>consumido {formatCurrency(card.total_spent)}</span>
+                    <span>límite {formatCurrency(card.spend_limit)}</span>
                   </div>
                 </div>
-
                 <div className="flex gap-2 mt-6">
                   <button
                     className="btn btn-primary btn-sm"
@@ -317,13 +311,13 @@ export function CreditCards() {
                     className="btn btn-secondary btn-sm"
                     onClick={() => handleUpdateLimit(card)}
                   >
-                    Editar Límite
+                    Límite
                   </button>
                   <button
                     className="btn btn-ghost btn-sm"
                     onClick={() => handleDeleteCard(card.id)}
                   >
-                    🗑️
+                    ×
                   </button>
                 </div>
               </div>
@@ -336,7 +330,7 @@ export function CreditCards() {
       <Modal
         isOpen={showCardModal}
         onClose={() => setShowCardModal(false)}
-        title="Nueva Tarjeta de Crédito"
+        title="Nueva Tarjeta"
         footer={
           <>
             <button
@@ -366,7 +360,7 @@ export function CreditCards() {
               }
               required
             >
-              <option value="">Seleccioná una entidad</option>
+              <option value="">Seleccioná...</option>
               {entities.map((e) => (
                 <option key={e.id} value={e.id}>
                   {e.name}
@@ -379,7 +373,7 @@ export function CreditCards() {
             <input
               className="form-input"
               type="text"
-              placeholder="Ej: Visa Gold"
+              placeholder="Visa Gold"
               value={cardForm.name}
               onChange={(e) =>
                 setCardForm({ ...cardForm, name: e.target.value })
@@ -388,7 +382,7 @@ export function CreditCards() {
             />
           </div>
           <div className="form-group">
-            <label className="form-label">Límite de gasto ($)</label>
+            <label className="form-label">Límite ($)</label>
             <input
               className="form-input"
               type="number"
@@ -409,7 +403,7 @@ export function CreditCards() {
       <Modal
         isOpen={showSpendModal}
         onClose={() => setShowSpendModal(false)}
-        title={`Nuevo gasto — ${selectedCard?.name || ""}`}
+        title={`Gasto — ${selectedCard?.name || ""}`}
         footer={
           <>
             <button
@@ -423,7 +417,7 @@ export function CreditCards() {
               onClick={handleAddSpend}
               disabled={submitting}
             >
-              {submitting ? "Registrando..." : "Registrar"}
+              {submitting ? "..." : "Registrar"}
             </button>
           </>
         }
@@ -434,7 +428,7 @@ export function CreditCards() {
             <input
               className="form-input"
               type="text"
-              placeholder="Ej: Compra en Mercado Libre"
+              placeholder="Compra en Mercado Libre"
               value={spendForm.description}
               onChange={(e) =>
                 setSpendForm({ ...spendForm, description: e.target.value })
@@ -448,18 +442,17 @@ export function CreditCards() {
               <select
                 className="form-select"
                 value={spendForm.currency}
-                onChange={(e) => {
-                  const currency = e.target.value;
+                onChange={(e) =>
                   setSpendForm({
                     ...spendForm,
-                    currency,
+                    currency: e.target.value,
                     installments:
-                      currency === "USD" ? "1" : spendForm.installments,
-                  });
-                }}
+                      e.target.value === "USD" ? "1" : spendForm.installments,
+                  })
+                }
               >
-                <option value="ARS">🇦🇷 ARS (Pesos)</option>
-                <option value="USD">🇺🇸 USD (Dólares)</option>
+                <option value="ARS">ARS</option>
+                <option value="USD">USD</option>
               </select>
             </div>
             <div className="form-group">
@@ -472,42 +465,16 @@ export function CreditCards() {
                 }
                 disabled={spendForm.currency === "USD"}
               >
-                <option value="1">1 (pago único)</option>
-                <option value="3">3 cuotas</option>
-                <option value="6">6 cuotas</option>
-                <option value="9">9 cuotas</option>
-                <option value="12">12 cuotas</option>
-                <option value="18">18 cuotas</option>
-                <option value="24">24 cuotas</option>
-                <option value="custom">Personalizado</option>
+                <option value="1">1 pago</option>
+                <option value="3">3</option>
+                <option value="6">6</option>
+                <option value="9">9</option>
+                <option value="12">12</option>
+                <option value="18">18</option>
+                <option value="24">24</option>
               </select>
             </div>
           </div>
-
-          {spendForm.installments === "custom" && (
-            <div className="form-group">
-              <label className="form-label">Número de cuotas</label>
-              <input
-                className="form-input"
-                type="number"
-                min="2"
-                max="120"
-                placeholder="Ej: 15"
-                onChange={(e) =>
-                  setSpendForm({ ...spendForm, installments: e.target.value })
-                }
-              />
-            </div>
-          )}
-
-          {spendForm.currency === "USD" && (
-            <div
-              className="form-hint"
-              style={{ color: "var(--accent-warning)" }}
-            >
-              ℹ️ Cuotas solo disponibles en pesos argentinos
-            </div>
-          )}
 
           {!isInstallment ? (
             <div className="form-group">
@@ -528,7 +495,7 @@ export function CreditCards() {
           ) : (
             <>
               <div className="form-group">
-                <label className="form-label">Ingresar por:</label>
+                <label className="form-label">Modo de ingreso</label>
                 <div className="flex gap-2">
                   <button
                     type="button"
@@ -537,7 +504,7 @@ export function CreditCards() {
                       setSpendForm({ ...spendForm, input_mode: "monthly" })
                     }
                   >
-                    Cuota mensual
+                    Cuota
                   </button>
                   <button
                     type="button"
@@ -546,11 +513,10 @@ export function CreditCards() {
                       setSpendForm({ ...spendForm, input_mode: "total" })
                     }
                   >
-                    Monto total
+                    Total
                   </button>
                 </div>
               </div>
-
               {spendForm.input_mode === "monthly" ? (
                 <div className="form-group">
                   <label className="form-label">Monto por cuota ($)</label>
@@ -617,40 +583,75 @@ export function CreditCards() {
       <Modal
         isOpen={showDetailModal}
         onClose={() => setShowDetailModal(false)}
-        title={`Detalle — ${cardDetail?.name || ""}`}
+        title={`${cardDetail?.name || ""}`}
       >
         {cardDetail && (
           <>
             <div className="flex justify-between mb-4">
-              <span style={{ color: "var(--text-muted)" }}>Límite:</span>
-              <span style={{ fontWeight: 700 }}>
+              <span
+                style={{
+                  color: "var(--white-30)",
+                  fontSize: "var(--font-size-sm)",
+                }}
+              >
+                Límite
+              </span>
+              <span className="font-mono" style={{ fontWeight: 700 }}>
                 {formatCurrency(cardDetail.spend_limit)}
               </span>
             </div>
             <div className="flex justify-between mb-4">
-              <span style={{ color: "var(--text-muted)" }}>Consumido:</span>
-              <span style={{ fontWeight: 700, color: "var(--accent-danger)" }}>
+              <span
+                style={{
+                  color: "var(--white-30)",
+                  fontSize: "var(--font-size-sm)",
+                }}
+              >
+                Consumido
+              </span>
+              <span
+                className="font-mono"
+                style={{ fontWeight: 700, color: "var(--red)" }}
+              >
                 {formatCurrency(cardDetail.total_spent)}
               </span>
             </div>
             <div className="flex justify-between mb-6">
-              <span style={{ color: "var(--text-muted)" }}>Disponible:</span>
-              <span style={{ fontWeight: 700, color: "var(--accent-success)" }}>
-                {formatCurrency(cardDetail.available_limit)}
-              </span>
-            </div>
-
-            <h4 style={{ fontWeight: 700, marginBottom: "var(--space-3)" }}>
-              Gastos
-            </h4>
-            {!cardDetail.spenditures || cardDetail.spenditures.length === 0 ? (
-              <div
+              <span
                 style={{
-                  color: "var(--text-muted)",
+                  color: "var(--white-30)",
                   fontSize: "var(--font-size-sm)",
                 }}
               >
-                Sin gastos registrados
+                Disponible
+              </span>
+              <span
+                className="font-mono"
+                style={{ fontWeight: 700, color: "var(--green)" }}
+              >
+                {formatCurrency(cardDetail.available_limit)}
+              </span>
+            </div>
+            <div
+              className="font-mono"
+              style={{
+                fontSize: "var(--font-size-xs)",
+                color: "var(--white-30)",
+                textTransform: "uppercase",
+                letterSpacing: "0.08em",
+                marginBottom: "var(--space-3)",
+              }}
+            >
+              gastos
+            </div>
+            {!cardDetail.spenditures || cardDetail.spenditures.length === 0 ? (
+              <div
+                style={{
+                  color: "var(--white-15)",
+                  fontSize: "var(--font-size-xs)",
+                }}
+              >
+                sin gastos
               </div>
             ) : (
               <div
@@ -664,7 +665,7 @@ export function CreditCards() {
                   <div
                     key={s.id}
                     className="list-item"
-                    style={{ padding: "var(--space-3)" }}
+                    style={{ padding: "var(--space-2)" }}
                   >
                     <div>
                       <div
@@ -676,20 +677,17 @@ export function CreditCards() {
                         {s.description}
                       </div>
                       <div
-                        style={{
-                          fontSize: "var(--font-size-xs)",
-                          color: "var(--text-muted)",
-                        }}
+                        className="font-mono"
+                        style={{ fontSize: "10px", color: "var(--white-30)" }}
                       >
                         {s.installments > 1
-                          ? `${s.remaining_installments}/${s.installments} cuotas`
-                          : "Pago único"}
-                        {s.currency === "USD" && " · USD"}
-                        {" · "}
+                          ? `${s.remaining_installments}/${s.installments}`
+                          : "1x"}
+                        {s.currency === "USD" && " · USD"} ·{" "}
                         {new Date(s.created_at).toLocaleDateString("es-AR")}
                       </div>
                     </div>
-                    <div className="text-right">
+                    <div className="text-right font-mono">
                       {s.installments > 1 ? (
                         <>
                           <div
@@ -698,19 +696,24 @@ export function CreditCards() {
                               fontSize: "var(--font-size-sm)",
                             }}
                           >
-                            {formatCurrency(s.monthly_amount, s.currency)}/mes
+                            {formatCurrency(s.monthly_amount, s.currency)}/m
                           </div>
                           <div
                             style={{
-                              fontSize: "var(--font-size-xs)",
-                              color: "var(--text-muted)",
+                              fontSize: "10px",
+                              color: "var(--white-30)",
                             }}
                           >
-                            Total: {formatCurrency(s.total_amount, s.currency)}
+                            total {formatCurrency(s.total_amount, s.currency)}
                           </div>
                         </>
                       ) : (
-                        <div style={{ fontWeight: 600 }}>
+                        <div
+                          style={{
+                            fontWeight: 600,
+                            fontSize: "var(--font-size-sm)",
+                          }}
+                        >
                           {formatCurrency(s.total_amount, s.currency)}
                         </div>
                       )}
@@ -722,7 +725,6 @@ export function CreditCards() {
           </>
         )}
       </Modal>
-
       <ToastContainer />
     </div>
   );

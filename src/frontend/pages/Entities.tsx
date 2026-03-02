@@ -3,12 +3,16 @@ import { api } from "../api";
 import {
   Modal,
   useToast,
-  formatCurrency,
   entityTypeLabel,
-  entityTypeIcon,
   LoadingPage,
   EmptyState,
 } from "../components/shared";
+
+const typeIcons: Record<string, string> = {
+  bank: "B",
+  wallet: "W",
+  asset_manager: "A",
+};
 
 export function Entities() {
   const [entities, setEntities] = useState<any[]>([]);
@@ -25,8 +29,7 @@ export function Entities() {
 
   async function loadEntities() {
     try {
-      const data = await api.getEntities();
-      setEntities(data);
+      setEntities(await api.getEntities());
     } catch (err: any) {
       addToast(err.message, "error");
     } finally {
@@ -90,7 +93,7 @@ export function Entities() {
         <div>
           <h1 className="page-title">Entidades</h1>
           <p className="page-subtitle">
-            Bancos, billeteras virtuales y sociedades de bolsa
+            bancos, billeteras virtuales y sociedades de bolsa
           </p>
         </div>
         <button
@@ -104,7 +107,7 @@ export function Entities() {
 
       {entities.length === 0 ? (
         <EmptyState
-          icon="🏦"
+          icon="◆"
           text="No hay entidades registradas. Creá tu primer banco o billetera."
           action={
             <button className="btn btn-primary" onClick={openCreate}>
@@ -116,7 +119,7 @@ export function Entities() {
         <div
           className="stats-grid"
           style={{
-            gridTemplateColumns: "repeat(auto-fill, minmax(300px, 1fr))",
+            gridTemplateColumns: "repeat(auto-fill, minmax(280px, 1fr))",
           }}
         >
           {entities.map((entity, i) => (
@@ -135,41 +138,35 @@ export function Entities() {
                   <div
                     className="list-item-icon"
                     style={{
-                      background:
-                        entity.type === "bank"
-                          ? "var(--accent-primary-muted)"
-                          : entity.type === "wallet"
-                            ? "var(--accent-cyan-muted)"
-                            : "var(--accent-purple-muted)",
+                      background: "var(--green-06)",
+                      color: "var(--green)",
                     }}
                   >
-                    {entityTypeIcon(entity.type)}
+                    {typeIcons[entity.type] || "E"}
                   </div>
                   <div>
                     <div
                       style={{
                         fontWeight: 700,
-                        fontSize: "var(--font-size-lg)",
+                        fontSize: "var(--font-size-md)",
                       }}
                     >
                       {entity.name}
                     </div>
-                    <span
-                      className={`badge ${entity.type === "bank" ? "badge-primary" : entity.type === "wallet" ? "badge-cyan" : "badge-purple"}`}
-                    >
+                    <span className="badge badge-primary">
                       {entityTypeLabel(entity.type)}
                     </span>
                   </div>
                 </div>
               </div>
               <div
+                className="font-mono"
                 style={{
-                  fontSize: "var(--font-size-xs)",
-                  color: "var(--text-muted)",
+                  fontSize: "10px",
+                  color: "var(--white-15)",
                   marginBottom: "var(--space-4)",
                 }}
               >
-                Creada:{" "}
                 {new Date(entity.created_at).toLocaleDateString("es-AR")}
               </div>
               <div className="flex gap-2">
@@ -239,14 +236,13 @@ export function Entities() {
               value={form.type}
               onChange={(e) => setForm({ ...form, type: e.target.value })}
             >
-              <option value="bank">🏦 Banco</option>
-              <option value="wallet">📱 Billetera Virtual</option>
-              <option value="asset_manager">📈 Sociedad de Bolsa</option>
+              <option value="bank">Banco</option>
+              <option value="wallet">Billetera Virtual</option>
+              <option value="asset_manager">Sociedad de Bolsa</option>
             </select>
           </div>
         </form>
       </Modal>
-
       <ToastContainer />
     </div>
   );

@@ -3,7 +3,6 @@ import { api } from "../api";
 import {
   formatCurrency,
   formatPercent,
-  entityTypeIcon,
   accountTypeLabel,
   LoadingPage,
   EmptyState,
@@ -35,8 +34,7 @@ export function Dashboard() {
 
   async function loadData() {
     try {
-      const result = await api.getDashboard();
-      setData(result);
+      setData(await api.getDashboard());
     } catch (err) {
       console.error("Failed to load dashboard:", err);
     } finally {
@@ -46,7 +44,7 @@ export function Dashboard() {
 
   if (loading) return <LoadingPage />;
   if (!data)
-    return <EmptyState icon="📊" text="Could not load dashboard data" />;
+    return <EmptyState icon="!" text="Could not load dashboard data" />;
 
   const blueRate = data.exchange_rates.find((r: any) => r.source === "blue");
   const hasData = data.entities.length > 0;
@@ -57,34 +55,34 @@ export function Dashboard() {
         <div>
           <h1 className="page-title">Dashboard</h1>
           <p className="page-subtitle">
-            Resumen de tus finanzas personales
+            resumen de finanzas personales
             {blueRate && (
-              <span style={{ marginLeft: "16px" }}>
-                <span className="badge badge-cyan">
-                  💵 Dólar Blue: {formatCurrency(blueRate.sell_rate)} venta
+              <span style={{ marginLeft: 16 }}>
+                <span className="badge badge-primary">
+                  USD Blue · {formatCurrency(blueRate.sell_rate)}
                 </span>
               </span>
             )}
           </p>
         </div>
         <button className="btn btn-secondary btn-sm" onClick={loadData}>
-          ↻ Actualizar
+          ↻ Refresh
         </button>
       </div>
 
       {!hasData ? (
         <EmptyState
-          icon="🚀"
-          text="¡Bienvenido! Empieza creando una entidad (banco, billetera o sociedad de bolsa) para comenzar."
+          icon="→"
+          text="Bienvenido. Empezá creando una entidad (banco, billetera, o sociedad de bolsa) para comenzar a trackear tus finanzas."
         />
       ) : (
         <>
-          {/* Stat Cards */}
+          {/* ---- Stat Cards ---- */}
           <div className="stats-grid">
             <div className="card stat-card positive animate-in stagger-1">
               <div className="card-header">
                 <div>
-                  <div className="card-title">Patrimonio Neto</div>
+                  <div className="card-title">Patrimonio neto</div>
                   <div
                     className={`card-value ${data.net_worth >= 0 ? "currency-positive" : "currency-negative"}`}
                   >
@@ -93,16 +91,20 @@ export function Dashboard() {
                 </div>
                 <div
                   className="card-icon"
-                  style={{ background: "var(--accent-success-muted)" }}
+                  style={{
+                    background: "var(--green-06)",
+                    color: "var(--green)",
+                  }}
                 >
-                  💰
+                  $
                 </div>
               </div>
               {blueRate && data.net_worth > 0 && (
                 <div
+                  className="font-mono"
                   style={{
-                    fontSize: "var(--font-size-sm)",
-                    color: "var(--text-muted)",
+                    fontSize: "var(--font-size-xs)",
+                    color: "var(--white-30)",
                   }}
                 >
                   ≈ {formatCurrency(data.net_worth / blueRate.sell_rate, "USD")}
@@ -113,25 +115,26 @@ export function Dashboard() {
             <div className="card stat-card negative animate-in stagger-2">
               <div className="card-header">
                 <div>
-                  <div className="card-title">Deuda Total</div>
+                  <div className="card-title">Deuda total</div>
                   <div className="card-value currency-negative">
                     {formatCurrency(data.total_debt)}
                   </div>
                 </div>
                 <div
                   className="card-icon"
-                  style={{ background: "var(--accent-danger-muted)" }}
+                  style={{ background: "var(--red-15)", color: "var(--red)" }}
                 >
-                  📉
+                  ↓
                 </div>
               </div>
               <div
+                className="font-mono"
                 style={{
-                  fontSize: "var(--font-size-sm)",
-                  color: "var(--text-muted)",
+                  fontSize: "var(--font-size-xs)",
+                  color: "var(--white-30)",
                 }}
               >
-                Préstamos: {formatCurrency(data.loan_debt)} · Tarjetas:{" "}
+                préstamos {formatCurrency(data.loan_debt)} · tarjetas{" "}
                 {formatCurrency(data.cc_debt)}
               </div>
             </div>
@@ -139,26 +142,30 @@ export function Dashboard() {
             <div className="card stat-card neutral animate-in stagger-3">
               <div className="card-header">
                 <div>
-                  <div className="card-title">Obligaciones Mensuales</div>
-                  <div className="card-value">
+                  <div className="card-title">Obligaciones mensuales</div>
+                  <div className="card-value" style={{ color: "var(--white)" }}>
                     {formatCurrency(data.monthly_obligations)}
                   </div>
                 </div>
                 <div
                   className="card-icon"
-                  style={{ background: "var(--accent-primary-muted)" }}
+                  style={{
+                    background: "var(--white-06)",
+                    color: "var(--white-50)",
+                  }}
                 >
-                  📅
+                  ≡
                 </div>
               </div>
               <div
+                className="font-mono"
                 style={{
-                  fontSize: "var(--font-size-sm)",
-                  color: "var(--text-muted)",
+                  fontSize: "var(--font-size-xs)",
+                  color: "var(--white-30)",
                 }}
               >
-                Préstamos: {formatCurrency(data.monthly_loan_payments)} ·
-                Tarjetas: {formatCurrency(data.monthly_cc_payments)}
+                préstamos {formatCurrency(data.monthly_loan_payments)} ·
+                tarjetas {formatCurrency(data.monthly_cc_payments)}
               </div>
             </div>
 
@@ -166,19 +173,22 @@ export function Dashboard() {
               <div className="card-header">
                 <div>
                   <div className="card-title">Entidades</div>
-                  <div className="card-value">{data.entities.length}</div>
+                  <div className="card-value" style={{ color: "var(--blue)" }}>
+                    {data.entities.length}
+                  </div>
                 </div>
                 <div
                   className="card-icon"
-                  style={{ background: "var(--accent-cyan-muted)" }}
+                  style={{ background: "var(--blue-15)", color: "var(--blue)" }}
                 >
-                  🏦
+                  ◆
                 </div>
               </div>
               <div
+                className="font-mono"
                 style={{
-                  fontSize: "var(--font-size-sm)",
-                  color: "var(--text-muted)",
+                  fontSize: "var(--font-size-xs)",
+                  color: "var(--white-30)",
                 }}
               >
                 {data.accounts.length} cuentas · {data.loans.length} préstamos ·{" "}
@@ -187,13 +197,13 @@ export function Dashboard() {
             </div>
           </div>
 
-          {/* Content Grid */}
+          {/* ---- Content Grid ---- */}
           <div className="content-grid">
             {/* Accounts */}
             <div className="card">
               <div className="card-header">
                 <h3
-                  style={{ fontSize: "var(--font-size-lg)", fontWeight: 700 }}
+                  style={{ fontSize: "var(--font-size-md)", fontWeight: 700 }}
                 >
                   Cuentas
                 </h3>
@@ -204,8 +214,8 @@ export function Dashboard() {
               {data.accounts.length === 0 ? (
                 <div
                   style={{
-                    color: "var(--text-muted)",
-                    fontSize: "var(--font-size-sm)",
+                    color: "var(--white-30)",
+                    fontSize: "var(--font-size-xs)",
                     padding: "var(--space-4) 0",
                   }}
                 >
@@ -213,24 +223,23 @@ export function Dashboard() {
                 </div>
               ) : (
                 <div
-                  style={{
-                    display: "flex",
-                    flexDirection: "column",
-                    gap: "var(--space-1)",
-                  }}
+                  style={{ display: "flex", flexDirection: "column", gap: 2 }}
                 >
                   {data.accounts.slice(0, 6).map((account: any) => (
                     <div key={account.id} className="list-item">
                       <div className="list-item-info">
                         <div
                           className="list-item-icon"
-                          style={{ background: "var(--accent-primary-muted)" }}
+                          style={{
+                            background: "var(--green-06)",
+                            color: "var(--green)",
+                          }}
                         >
                           {account.type === "savings"
-                            ? "🏧"
+                            ? "S"
                             : account.type === "checking"
-                              ? "📋"
-                              : "📈"}
+                              ? "C"
+                              : "R"}
                         </div>
                         <div className="list-item-details">
                           <div className="list-item-title">{account.name}</div>
@@ -263,20 +272,20 @@ export function Dashboard() {
             <div className="card">
               <div className="card-header">
                 <h3
-                  style={{ fontSize: "var(--font-size-lg)", fontWeight: 700 }}
+                  style={{ fontSize: "var(--font-size-md)", fontWeight: 700 }}
                 >
-                  Composición de Deuda
+                  Composición de deuda
                 </h3>
               </div>
               {data.total_debt === 0 ? (
                 <div
                   style={{
-                    color: "var(--text-muted)",
-                    fontSize: "var(--font-size-sm)",
+                    color: "var(--white-30)",
+                    fontSize: "var(--font-size-xs)",
                     padding: "var(--space-4) 0",
                   }}
                 >
-                  No tenés deudas registradas 🎉
+                  Sin deudas registradas
                 </div>
               ) : (
                 <div className="donut-chart">
@@ -286,8 +295,8 @@ export function Dashboard() {
                       cy="21"
                       r="15.91549430918954"
                       fill="transparent"
-                      stroke="var(--bg-input)"
-                      strokeWidth="4"
+                      stroke="var(--white-06)"
+                      strokeWidth="3"
                     />
                     {data.total_debt > 0 && (
                       <>
@@ -296,8 +305,8 @@ export function Dashboard() {
                           cy="21"
                           r="15.91549430918954"
                           fill="transparent"
-                          stroke="var(--accent-danger)"
-                          strokeWidth="4"
+                          stroke="var(--red)"
+                          strokeWidth="3"
                           strokeDasharray={`${(data.loan_debt / data.total_debt) * 100} ${100 - (data.loan_debt / data.total_debt) * 100}`}
                           strokeDashoffset="0"
                         />
@@ -306,8 +315,8 @@ export function Dashboard() {
                           cy="21"
                           r="15.91549430918954"
                           fill="transparent"
-                          stroke="var(--accent-warning)"
-                          strokeWidth="4"
+                          stroke="var(--yellow)"
+                          strokeWidth="3"
                           strokeDasharray={`${(data.cc_debt / data.total_debt) * 100} ${100 - (data.cc_debt / data.total_debt) * 100}`}
                           strokeDashoffset={`${-(data.loan_debt / data.total_debt) * 100}`}
                         />
@@ -318,16 +327,16 @@ export function Dashboard() {
                     <div className="donut-legend-item">
                       <div
                         className="donut-legend-dot"
-                        style={{ background: "var(--accent-danger)" }}
+                        style={{ background: "var(--red)" }}
                       />
-                      <span>Préstamos: {formatCurrency(data.loan_debt)}</span>
+                      <span>Préstamos · {formatCurrency(data.loan_debt)}</span>
                     </div>
                     <div className="donut-legend-item">
                       <div
                         className="donut-legend-dot"
-                        style={{ background: "var(--accent-warning)" }}
+                        style={{ background: "var(--yellow)" }}
                       />
-                      <span>Tarjetas: {formatCurrency(data.cc_debt)}</span>
+                      <span>Tarjetas · {formatCurrency(data.cc_debt)}</span>
                     </div>
                   </div>
                 </div>
@@ -338,17 +347,17 @@ export function Dashboard() {
             <div className="card">
               <div className="card-header">
                 <h3
-                  style={{ fontSize: "var(--font-size-lg)", fontWeight: 700 }}
+                  style={{ fontSize: "var(--font-size-md)", fontWeight: 700 }}
                 >
-                  Préstamos Activos
+                  Préstamos activos
                 </h3>
                 <span className="badge badge-danger">{data.loans.length}</span>
               </div>
               {data.loans.length === 0 ? (
                 <div
                   style={{
-                    color: "var(--text-muted)",
-                    fontSize: "var(--font-size-sm)",
+                    color: "var(--white-30)",
+                    fontSize: "var(--font-size-xs)",
                     padding: "var(--space-4) 0",
                   }}
                 >
@@ -356,20 +365,19 @@ export function Dashboard() {
                 </div>
               ) : (
                 <div
-                  style={{
-                    display: "flex",
-                    flexDirection: "column",
-                    gap: "var(--space-1)",
-                  }}
+                  style={{ display: "flex", flexDirection: "column", gap: 2 }}
                 >
                   {data.loans.slice(0, 5).map((loan: any) => (
                     <div key={loan.id} className="list-item">
                       <div className="list-item-info">
                         <div
                           className="list-item-icon"
-                          style={{ background: "var(--accent-danger-muted)" }}
+                          style={{
+                            background: "var(--red-15)",
+                            color: "var(--red)",
+                          }}
                         >
-                          💳
+                          ▸
                         </div>
                         <div className="list-item-details">
                           <div className="list-item-title">{loan.name}</div>
@@ -381,7 +389,7 @@ export function Dashboard() {
                       </div>
                       <div className="list-item-value">
                         <div className="list-item-amount currency-negative">
-                          {formatCurrency(loan.monthly_payment)}/mes
+                          {formatCurrency(loan.monthly_payment)}/m
                         </div>
                         <div className="list-item-label">
                           CFTEA {formatPercent(loan.cftea)}
@@ -397,9 +405,9 @@ export function Dashboard() {
             <div className="card">
               <div className="card-header">
                 <h3
-                  style={{ fontSize: "var(--font-size-lg)", fontWeight: 700 }}
+                  style={{ fontSize: "var(--font-size-md)", fontWeight: 700 }}
                 >
-                  Tarjetas de Crédito
+                  Tarjetas de crédito
                 </h3>
                 <span className="badge badge-purple">
                   {data.credit_cards.length}
@@ -408,8 +416,8 @@ export function Dashboard() {
               {data.credit_cards.length === 0 ? (
                 <div
                   style={{
-                    color: "var(--text-muted)",
-                    fontSize: "var(--font-size-sm)",
+                    color: "var(--white-30)",
+                    fontSize: "var(--font-size-xs)",
                     padding: "var(--space-4) 0",
                   }}
                 >
@@ -420,7 +428,7 @@ export function Dashboard() {
                   style={{
                     display: "flex",
                     flexDirection: "column",
-                    gap: "var(--space-3)",
+                    gap: "var(--space-4)",
                   }}
                 >
                   {data.credit_cards.slice(0, 5).map((card: any) => {
@@ -430,22 +438,30 @@ export function Dashboard() {
                         : 0;
                     const barColor =
                       usage > 80
-                        ? "var(--accent-danger)"
+                        ? "var(--red)"
                         : usage > 50
-                          ? "var(--accent-warning)"
-                          : "var(--accent-success)";
+                          ? "var(--yellow)"
+                          : "var(--green)";
                     return (
                       <div
                         key={card.id}
-                        style={{ padding: "var(--space-3) 0" }}
+                        style={{ padding: "var(--space-2) 0" }}
                       >
                         <div className="flex justify-between items-center mb-4">
                           <div>
-                            <div style={{ fontWeight: 600 }}>{card.name}</div>
+                            <div
+                              style={{
+                                fontWeight: 600,
+                                fontSize: "var(--font-size-sm)",
+                              }}
+                            >
+                              {card.name}
+                            </div>
                             <div
                               style={{
                                 fontSize: "var(--font-size-xs)",
-                                color: "var(--text-muted)",
+                                color: "var(--white-30)",
+                                fontFamily: "var(--font-mono)",
                               }}
                             >
                               {card.entity_name}
@@ -453,20 +469,26 @@ export function Dashboard() {
                           </div>
                           <div className="text-right">
                             <div
+                              className="font-mono"
                               style={{
                                 fontWeight: 600,
                                 fontSize: "var(--font-size-sm)",
+                                color:
+                                  card.available_limit > 0
+                                    ? "var(--green)"
+                                    : "var(--red)",
                               }}
                             >
-                              Disponible: {formatCurrency(card.available_limit)}
+                              {formatCurrency(card.available_limit)}
                             </div>
                             <div
+                              className="font-mono"
                               style={{
-                                fontSize: "var(--font-size-xs)",
-                                color: "var(--text-muted)",
+                                fontSize: "10px",
+                                color: "var(--white-30)",
                               }}
                             >
-                              de {formatCurrency(card.spend_limit)}
+                              / {formatCurrency(card.spend_limit)}
                             </div>
                           </div>
                         </div>
@@ -490,9 +512,9 @@ export function Dashboard() {
             <div className="card full-width">
               <div className="card-header">
                 <h3
-                  style={{ fontSize: "var(--font-size-lg)", fontWeight: 700 }}
+                  style={{ fontSize: "var(--font-size-md)", fontWeight: 700 }}
                 >
-                  Pagos Recientes
+                  Pagos recientes
                 </h3>
                 <span className="badge badge-primary">
                   {data.recent_payments.length}
@@ -501,8 +523,8 @@ export function Dashboard() {
               {data.recent_payments.length === 0 ? (
                 <div
                   style={{
-                    color: "var(--text-muted)",
-                    fontSize: "var(--font-size-sm)",
+                    color: "var(--white-30)",
+                    fontSize: "var(--font-size-xs)",
                     padding: "var(--space-4) 0",
                   }}
                 >
@@ -520,24 +542,25 @@ export function Dashboard() {
                     </tr>
                   </thead>
                   <tbody>
-                    {data.recent_payments.map((payment: any) => (
-                      <tr key={payment.id}>
-                        <td>
-                          {new Date(payment.created_at).toLocaleDateString(
-                            "es-AR",
-                          )}
+                    {data.recent_payments.map((p: any) => (
+                      <tr key={p.id}>
+                        <td className="font-mono">
+                          {new Date(p.created_at).toLocaleDateString("es-AR")}
                         </td>
                         <td>
                           <span
-                            className={`badge ${payment.type === "loan" ? "badge-danger" : "badge-purple"}`}
+                            className={`badge ${p.type === "loan" ? "badge-danger" : "badge-purple"}`}
                           >
-                            {payment.type === "loan" ? "Préstamo" : "Tarjeta"}
+                            {p.type === "loan" ? "préstamo" : "tarjeta"}
                           </span>
                         </td>
-                        <td>{payment.description || "—"}</td>
-                        <td>{payment.account_name}</td>
-                        <td style={{ textAlign: "right", fontWeight: 600 }}>
-                          {formatCurrency(payment.amount)}
+                        <td>{p.description || "—"}</td>
+                        <td>{p.account_name}</td>
+                        <td
+                          className="font-mono"
+                          style={{ textAlign: "right", fontWeight: 600 }}
+                        >
+                          {formatCurrency(p.amount)}
                         </td>
                       </tr>
                     ))}
@@ -551,11 +574,14 @@ export function Dashboard() {
               <div className="card full-width">
                 <div className="card-header">
                   <h3
-                    style={{ fontSize: "var(--font-size-lg)", fontWeight: 700 }}
+                    style={{ fontSize: "var(--font-size-md)", fontWeight: 700 }}
                   >
-                    Cotizaciones USD/ARS
+                    Cotizaciones USD / ARS
                   </h3>
-                  <span className="badge badge-cyan">
+                  <span
+                    className="badge badge-primary"
+                    style={{ fontFamily: "var(--font-mono)" }}
+                  >
                     {data.exchange_rates[0]?.fetched_at
                       ? new Date(
                           data.exchange_rates[0].fetched_at,
@@ -584,12 +610,12 @@ export function Dashboard() {
                             height: `${height}%`,
                             background:
                               rate.source === "blue"
-                                ? "var(--accent-cyan)"
+                                ? "var(--green)"
                                 : rate.source === "oficial"
-                                  ? "var(--accent-primary)"
+                                  ? "var(--white-30)"
                                   : rate.source === "tarjeta"
-                                    ? "var(--accent-purple)"
-                                    : "var(--accent-warning)",
+                                    ? "var(--yellow)"
+                                    : "var(--white-15)",
                           }}
                         />
                         <div className="chart-bar-label">{rate.source}</div>

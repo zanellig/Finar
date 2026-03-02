@@ -18,12 +18,12 @@ type Route =
   | "payments";
 
 const navItems: { route: Route; icon: string; label: string }[] = [
-  { route: "dashboard", icon: "📊", label: "Dashboard" },
-  { route: "entities", icon: "🏦", label: "Entidades" },
-  { route: "accounts", icon: "🏧", label: "Cuentas" },
-  { route: "loans", icon: "📋", label: "Préstamos" },
-  { route: "credit-cards", icon: "💳", label: "Tarjetas" },
-  { route: "payments", icon: "💸", label: "Pagos" },
+  { route: "dashboard", icon: "◎", label: "Dashboard" },
+  { route: "entities", icon: "◆", label: "Entidades" },
+  { route: "accounts", icon: "▤", label: "Cuentas" },
+  { route: "loans", icon: "▸", label: "Préstamos" },
+  { route: "credit-cards", icon: "▬", label: "Tarjetas" },
+  { route: "payments", icon: "↗", label: "Pagos" },
 ];
 
 function getRouteFromHash(): Route {
@@ -77,25 +77,23 @@ function App() {
 
   return (
     <div className="app-layout">
-      {/* Mobile menu button */}
       <button
         className="mobile-menu-btn"
         onClick={() => setSidebarOpen(!sidebarOpen)}
         aria-label="Toggle menu"
       >
-        {sidebarOpen ? "✕" : "☰"}
+        {sidebarOpen ? "✕" : "≡"}
       </button>
 
-      {/* Sidebar */}
       <nav className={`sidebar ${sidebarOpen ? "open" : ""}`}>
         <div className="sidebar-header">
           <div className="sidebar-logo">
-            <div className="sidebar-logo-icon">💰</div>
+            <div className="sidebar-logo-icon">FT</div>
             <span className="sidebar-logo-text">FinTracker</span>
           </div>
         </div>
         <div className="sidebar-nav">
-          <div className="sidebar-section-label">General</div>
+          <div className="sidebar-section-label">overview</div>
           {navItems.slice(0, 1).map((item) => (
             <button
               key={item.route}
@@ -107,7 +105,7 @@ function App() {
             </button>
           ))}
 
-          <div className="sidebar-section-label">Gestión</div>
+          <div className="sidebar-section-label">gestión</div>
           {navItems.slice(1, 3).map((item) => (
             <button
               key={item.route}
@@ -119,7 +117,7 @@ function App() {
             </button>
           ))}
 
-          <div className="sidebar-section-label">Finanzas</div>
+          <div className="sidebar-section-label">finanzas</div>
           {navItems.slice(3).map((item) => (
             <button
               key={item.route}
@@ -131,9 +129,21 @@ function App() {
             </button>
           ))}
         </div>
+
+        <div
+          style={{
+            padding: "var(--space-4) var(--space-5)",
+            borderTop: "1px solid var(--white-06)",
+            fontFamily: "var(--font-mono)",
+            fontSize: "10px",
+            color: "var(--white-15)",
+            letterSpacing: "0.05em",
+          }}
+        >
+          v1.0.0
+        </div>
       </nav>
 
-      {/* Main content */}
       <main className="main-content">{renderPage()}</main>
     </div>
   );
