@@ -1,4 +1,5 @@
 import homepage from "./frontend/index.html";
+import landingPage from "./frontend/landing/index.html";
 import { getEntitiesRoutes } from "./api/entities";
 import { getLoansRoutes } from "./api/loans";
 import { getCreditCardsRoutes } from "./api/credit-cards";
@@ -14,6 +15,7 @@ const server = Bun.serve({
   port: 3000,
   routes: {
     "/": homepage,
+    "/landing": landingPage,
     ...getEntitiesRoutes(),
     ...getLoansRoutes(),
     ...getCreditCardsRoutes(),
