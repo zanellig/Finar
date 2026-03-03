@@ -217,7 +217,7 @@ export function Accounts() {
                         >
                           {accountTypeLabel(acct.type)}
                         </span>
-                        {acct.is_salary_account === 1 && (
+                        {!!acct.is_salary_account && (
                           <span className="badge badge-success">sueldo</span>
                         )}
                         {acct.type === "checking" &&

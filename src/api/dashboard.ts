@@ -1,127 +1,191 @@
-import { getDb } from "../db/database";
+import { eq, gt, sql, desc } from "drizzle-orm";
+import { getOrm } from "../db/database";
+import {
+  accounts,
+  entities,
+  loans,
+  creditCards,
+  ccSpenditures,
+  payments,
+  exchangeRates,
+} from "../db/schema";
 
 export function getDashboardRoutes() {
   return {
     "/api/dashboard": {
       GET: () => {
-        const db = getDb();
+        const db = getOrm();
 
         // Net worth: sum of all account balances
         const netWorthResult = db
-          .query("SELECT COALESCE(SUM(balance), 0) as net_worth FROM accounts")
-          .get() as any;
+          .select({
+            net_worth: sql<number>`COALESCE(SUM(${accounts.balance}), 0)`,
+          })
+          .from(accounts)
+          .get();
 
-        // Total debt: sum of remaining loan amounts + CC spenditures
-        const loanDebt = db
-          .query(
-            `SELECT COALESCE(SUM(monthly_payment * remaining_installments), 0) as total
-             FROM loans WHERE remaining_installments > 0`,
-          )
-          .get() as any;
+        // Loan debt
+        const loanDebtResult = db
+          .select({
+            total: sql<number>`COALESCE(SUM(${loans.monthlyPayment} * ${loans.remainingInstallments}), 0)`,
+          })
+          .from(loans)
+          .where(gt(loans.remainingInstallments, 0))
+          .get();
 
-        const ccDebt = db
-          .query(
-            `SELECT COALESCE(SUM(monthly_amount * remaining_installments), 0) as total
-             FROM cc_spenditures WHERE is_paid_off = 0`,
-          )
-          .get() as any;
+        // CC debt
+        const ccDebtResult = db
+          .select({
+            total: sql<number>`COALESCE(SUM(${ccSpenditures.monthlyAmount} * ${ccSpenditures.remainingInstallments}), 0)`,
+          })
+          .from(ccSpenditures)
+          .where(eq(ccSpenditures.isPaidOff, false))
+          .get();
 
-        // Monthly obligations: loan payments + CC minimum payments
-        const monthlyLoanPayments = db
-          .query(
-            `SELECT COALESCE(SUM(monthly_payment), 0) as total
-             FROM loans WHERE remaining_installments > 0`,
-          )
-          .get() as any;
+        // Monthly loan obligations
+        const monthlyLoanResult = db
+          .select({
+            total: sql<number>`COALESCE(SUM(${loans.monthlyPayment}), 0)`,
+          })
+          .from(loans)
+          .where(gt(loans.remainingInstallments, 0))
+          .get();
 
-        const monthlyCCPayments = db
-          .query(
-            `SELECT COALESCE(SUM(monthly_amount), 0) as total
-             FROM cc_spenditures WHERE is_paid_off = 0 AND remaining_installments > 0`,
-          )
-          .get() as any;
+        // Monthly CC obligations
+        const monthlyCCResult = db
+          .select({
+            total: sql<number>`COALESCE(SUM(${ccSpenditures.monthlyAmount}), 0)`,
+          })
+          .from(ccSpenditures)
+          .where(eq(ccSpenditures.isPaidOff, false))
+          .get();
 
         // Accounts breakdown
-        const accounts = db
-          .query(
-            `SELECT a.id, a.name, a.type, a.balance, a.currency, a.tna_rate, e.name as entity_name
-             FROM accounts a JOIN entities e ON a.entity_id = e.id
-             ORDER BY a.balance DESC`,
-          )
+        const accountList = db
+          .select({
+            id: accounts.id,
+            name: accounts.name,
+            type: accounts.type,
+            balance: accounts.balance,
+            currency: accounts.currency,
+            tna_rate: accounts.tnaRate,
+            entity_name: entities.name,
+          })
+          .from(accounts)
+          .innerJoin(entities, eq(accounts.entityId, entities.id))
+          .orderBy(desc(accounts.balance))
           .all();
 
         // Entities summary
-        const entities = db
-          .query(
-            `SELECT e.*, 
-             (SELECT COUNT(*) FROM accounts WHERE entity_id = e.id) as account_count,
-             (SELECT COUNT(*) FROM loans WHERE entity_id = e.id) as loan_count,
-             (SELECT COUNT(*) FROM credit_cards WHERE entity_id = e.id) as card_count
-             FROM entities e ORDER BY e.name ASC`,
-          )
+        const entityList = db
+          .select({
+            id: entities.id,
+            name: entities.name,
+            type: entities.type,
+            created_at: entities.createdAt,
+            account_count: sql<number>`(SELECT COUNT(*) FROM accounts WHERE entity_id = ${entities.id})`,
+            loan_count: sql<number>`(SELECT COUNT(*) FROM loans WHERE entity_id = ${entities.id})`,
+            card_count: sql<number>`(SELECT COUNT(*) FROM credit_cards WHERE entity_id = ${entities.id})`,
+          })
+          .from(entities)
+          .orderBy(entities.name)
           .all();
 
         // Active loans
-        const loans = db
-          .query(
-            `SELECT l.*, e.name as entity_name
-             FROM loans l JOIN entities e ON l.entity_id = e.id
-             WHERE l.remaining_installments > 0
-             ORDER BY l.monthly_payment DESC`,
-          )
+        const loanList = db
+          .select({
+            id: loans.id,
+            name: loans.name,
+            capital: loans.capital,
+            installments: loans.installments,
+            cftea: loans.cftea,
+            total_owed: loans.totalOwed,
+            monthly_payment: loans.monthlyPayment,
+            remaining_installments: loans.remainingInstallments,
+            entity_name: entities.name,
+          })
+          .from(loans)
+          .innerJoin(entities, eq(loans.entityId, entities.id))
+          .where(gt(loans.remainingInstallments, 0))
+          .orderBy(desc(loans.monthlyPayment))
           .all();
 
         // Credit cards with available limits
-        const creditCards = db
-          .query(
-            `SELECT cc.*, e.name as entity_name
-             FROM credit_cards cc JOIN entities e ON cc.entity_id = e.id
-             ORDER BY cc.spend_limit DESC`,
-          )
+        const cardList = db
+          .select({
+            id: creditCards.id,
+            name: creditCards.name,
+            spend_limit: creditCards.spendLimit,
+            entity_name: entities.name,
+          })
+          .from(creditCards)
+          .innerJoin(entities, eq(creditCards.entityId, entities.id))
+          .orderBy(desc(creditCards.spendLimit))
           .all();
 
-        const cardsWithLimits = (creditCards as any[]).map((card) => {
+        const cardsWithLimits = cardList.map((card) => {
           const spent = db
-            .query(
-              `SELECT COALESCE(SUM(total_amount), 0) as total
-               FROM cc_spenditures WHERE credit_card_id = $cardId AND is_paid_off = 0`,
+            .select({
+              total: sql<number>`COALESCE(SUM(${ccSpenditures.totalAmount}), 0)`,
+            })
+            .from(ccSpenditures)
+            .where(
+              sql`${ccSpenditures.creditCardId} = ${card.id} AND ${ccSpenditures.isPaidOff} = 0`,
             )
-            .get({ cardId: card.id }) as any;
+            .get();
+          const totalSpent = spent?.total ?? 0;
           return {
             ...card,
-            total_spent: spent?.total || 0,
-            available_limit: card.spend_limit - (spent?.total || 0),
+            total_spent: totalSpent,
+            available_limit: card.spend_limit - totalSpent,
           };
         });
 
         // Recent payments
-        const recentPayments = db
-          .query(
-            `SELECT p.*, a.name as account_name
-             FROM payments p JOIN accounts a ON p.account_id = a.id
-             ORDER BY p.created_at DESC LIMIT 10`,
-          )
+        const recentPaymentList = db
+          .select({
+            id: payments.id,
+            type: payments.type,
+            target_id: payments.targetId,
+            amount: payments.amount,
+            description: payments.description,
+            created_at: payments.createdAt,
+            account_name: accounts.name,
+          })
+          .from(payments)
+          .innerJoin(accounts, eq(payments.accountId, accounts.id))
+          .orderBy(desc(payments.createdAt))
+          .limit(10)
           .all();
 
         // Exchange rates
         const rates = db
-          .query("SELECT * FROM exchange_rates ORDER BY source ASC")
+          .select({
+            id: exchangeRates.id,
+            pair: exchangeRates.pair,
+            buy_rate: exchangeRates.buyRate,
+            sell_rate: exchangeRates.sellRate,
+            source: exchangeRates.source,
+            fetched_at: exchangeRates.fetchedAt,
+          })
+          .from(exchangeRates)
+          .orderBy(exchangeRates.source)
           .all();
 
         return Response.json({
-          net_worth: netWorthResult.net_worth,
-          total_debt: loanDebt.total + ccDebt.total,
+          net_worth: netWorthResult?.net_worth ?? 0,
+          total_debt: (loanDebtResult?.total ?? 0) + (ccDebtResult?.total ?? 0),
           monthly_obligations:
-            monthlyLoanPayments.total + monthlyCCPayments.total,
-          loan_debt: loanDebt.total,
-          cc_debt: ccDebt.total,
-          monthly_loan_payments: monthlyLoanPayments.total,
-          monthly_cc_payments: monthlyCCPayments.total,
-          accounts,
-          entities,
-          loans,
+            (monthlyLoanResult?.total ?? 0) + (monthlyCCResult?.total ?? 0),
+          loan_debt: loanDebtResult?.total ?? 0,
+          cc_debt: ccDebtResult?.total ?? 0,
+          monthly_loan_payments: monthlyLoanResult?.total ?? 0,
+          monthly_cc_payments: monthlyCCResult?.total ?? 0,
+          accounts: accountList,
+          entities: entityList,
+          loans: loanList,
           credit_cards: cardsWithLimits,
-          recent_payments: recentPayments,
+          recent_payments: recentPaymentList,
           exchange_rates: rates,
         });
       },

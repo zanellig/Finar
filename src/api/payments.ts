@@ -1,131 +1,175 @@
-import { getDb } from "../db/database";
-import {
-  sanitizeString,
-  sanitizeNumber,
-  sanitizeEnum,
-  sanitizeUUID,
-  validationError,
-} from "../utils/sanitize";
-
-const PAYMENT_TYPES = ["cc", "loan"] as const;
+import { eq, sql } from "drizzle-orm";
+import { getDb, getOrm } from "../db/database";
+import { payments, accounts, loans, creditCards } from "../db/schema";
+import { insertPaymentSchema, validationError } from "../db/validation";
 
 export function getPaymentsRoutes() {
   return {
     "/api/payments": {
       GET: () => {
-        const db = getDb();
-        const payments = db
-          .query(
-            `SELECT p.*, a.name as account_name, a.currency as account_currency
-             FROM payments p
-             JOIN accounts a ON p.account_id = a.id
-             ORDER BY p.created_at DESC`,
-          )
+        const db = getOrm();
+        const result = db
+          .select({
+            id: payments.id,
+            type: payments.type,
+            target_id: payments.targetId,
+            account_id: payments.accountId,
+            amount: payments.amount,
+            description: payments.description,
+            created_at: payments.createdAt,
+            account_name: accounts.name,
+            account_currency: accounts.currency,
+          })
+          .from(payments)
+          .innerJoin(accounts, eq(payments.accountId, accounts.id))
+          .orderBy(payments.createdAt)
           .all();
 
-        // Enrich with target info
-        const enriched = (payments as any[]).map((payment) => {
+        // Enrich with target name
+        const enriched = result.map((p) => {
           let targetName = "";
-          if (payment.type === "loan") {
+          if (p.type === "loan") {
             const loan = db
-              .query("SELECT name FROM loans WHERE id = $id")
-              .get({ id: payment.target_id }) as any;
+              .select({ name: loans.name })
+              .from(loans)
+              .where(eq(loans.id, p.target_id))
+              .get();
             targetName = loan?.name || "Unknown Loan";
           } else {
             const card = db
-              .query("SELECT name FROM credit_cards WHERE id = $id")
-              .get({ id: payment.target_id }) as any;
+              .select({ name: creditCards.name })
+              .from(creditCards)
+              .where(eq(creditCards.id, p.target_id))
+              .get();
             targetName = card?.name || "Unknown Card";
           }
-          return { ...payment, target_name: targetName };
+          return { ...p, target_name: targetName };
         });
 
         return Response.json(enriched);
       },
       POST: async (req: Request) => {
-        const db = getDb();
-        const body = await req.json().catch(() => null);
-        if (!body) return validationError("Invalid JSON body");
+        try {
+          const body = await req.json().catch(() => null);
+          if (!body)
+            return Response.json(
+              { error: "Invalid JSON body" },
+              { status: 400 },
+            );
 
-        const type = sanitizeEnum(body.type, PAYMENT_TYPES);
-        const targetId = sanitizeUUID(body.target_id);
-        const accountId = sanitizeUUID(body.account_id);
-        const amount = sanitizeNumber(body.amount, 0.01, 999_999_999);
-        const description = sanitizeString(body.description, 200) || "";
+          const data = insertPaymentSchema.parse(body);
+          const db = getOrm();
 
-        if (!type) return validationError("Type must be 'cc' or 'loan'");
-        if (!targetId) return validationError("Valid target_id is required");
-        if (!accountId) return validationError("Valid account_id is required");
-        if (amount === null)
-          return validationError("Amount must be a positive number");
+          // Verify account exists and check balance
+          const account = db
+            .select()
+            .from(accounts)
+            .where(eq(accounts.id, data.account_id))
+            .get();
+          if (!account)
+            return Response.json(
+              { error: "Account not found" },
+              { status: 400 },
+            );
 
-        // Verify account exists and has sufficient balance (considering overdraft for checking)
-        const account = db
-          .query("SELECT * FROM accounts WHERE id = $id")
-          .get({ id: accountId }) as any;
-        if (!account) return validationError("Account not found");
+          const minBalance =
+            account.type === "checking" ? -(account.overdraftLimit || 0) : 0;
+          if (account.balance - data.amount < minBalance) {
+            return Response.json(
+              {
+                error: `Insufficient funds. Available: ${account.balance}${account.type === "checking" ? ` (overdraft limit: ${account.overdraftLimit})` : ""}`,
+              },
+              { status: 400 },
+            );
+          }
 
-        const minBalance =
-          account.type === "checking" ? -(account.overdraft_limit || 0) : 0;
-        if (account.balance - amount < minBalance) {
-          return validationError(
-            `Insufficient funds. Available: ${account.balance}${account.type === "checking" ? ` (overdraft limit: ${account.overdraft_limit})` : ""}`,
-          );
-        }
+          // Verify target exists
+          if (data.type === "loan") {
+            const loan = db
+              .select({
+                id: loans.id,
+                remaining: loans.remainingInstallments,
+              })
+              .from(loans)
+              .where(eq(loans.id, data.target_id))
+              .get();
+            if (!loan)
+              return Response.json(
+                { error: "Loan not found" },
+                { status: 400 },
+              );
+            if (loan.remaining <= 0)
+              return Response.json(
+                { error: "Loan is already paid off" },
+                { status: 400 },
+              );
+          } else {
+            const card = db
+              .select({ id: creditCards.id })
+              .from(creditCards)
+              .where(eq(creditCards.id, data.target_id))
+              .get();
+            if (!card)
+              return Response.json(
+                { error: "Credit card not found" },
+                { status: 400 },
+              );
+          }
 
-        // Verify target exists
-        if (type === "loan") {
-          const loan = db
-            .query(
-              "SELECT id, remaining_installments FROM loans WHERE id = $id",
-            )
-            .get({ id: targetId }) as any;
-          if (!loan) return validationError("Loan not found");
-          if (loan.remaining_installments <= 0)
-            return validationError("Loan is already paid off");
-        } else {
-          const card = db
-            .query("SELECT id FROM credit_cards WHERE id = $id")
-            .get({ id: targetId });
-          if (!card) return validationError("Credit card not found");
-        }
+          const id = crypto.randomUUID();
 
-        const id = crypto.randomUUID();
+          // Transaction: deduct + record + update target
+          const rawDb = getDb();
+          const makePayment = rawDb.transaction(() => {
+            db.update(accounts)
+              .set({
+                balance: sql`${accounts.balance} - ${data.amount}`,
+              })
+              .where(eq(accounts.id, data.account_id))
+              .run();
 
-        // Use a transaction for atomicity
-        const makePayment = db.transaction(() => {
-          // Deduct from account
-          db.query(
-            "UPDATE accounts SET balance = balance - $amount WHERE id = $accountId",
-          ).run({
-            amount,
-            accountId,
+            db.insert(payments)
+              .values({
+                id,
+                type: data.type,
+                targetId: data.target_id,
+                accountId: data.account_id,
+                amount: data.amount,
+                description: data.description,
+              })
+              .run();
+
+            if (data.type === "loan") {
+              db.update(loans)
+                .set({
+                  remainingInstallments: sql`${loans.remainingInstallments} - 1`,
+                })
+                .where(eq(loans.id, data.target_id))
+                .run();
+            }
           });
 
-          // Record payment
-          db.query(
-            `INSERT INTO payments (id, type, target_id, account_id, amount, description)
-             VALUES ($id, $type, $targetId, $accountId, $amount, $description)`,
-          ).run({ id, type, targetId, accountId, amount, description });
+          makePayment();
 
-          // Update target
-          if (type === "loan") {
-            db.query(
-              "UPDATE loans SET remaining_installments = remaining_installments - 1 WHERE id = $targetId",
-            ).run({ targetId });
-          }
-          // For CC payments, mark spenditures as paid off based on payment amount
-          // This is simplified - in practice each spenditure would be tracked individually
-        });
-
-        makePayment();
-
-        const payment = db
-          .query(
-            `SELECT p.*, a.name as account_name FROM payments p JOIN accounts a ON p.account_id = a.id WHERE p.id = $id`,
-          )
-          .get({ id });
-        return Response.json(payment, { status: 201 });
+          const payment = db
+            .select({
+              id: payments.id,
+              type: payments.type,
+              target_id: payments.targetId,
+              account_id: payments.accountId,
+              amount: payments.amount,
+              description: payments.description,
+              created_at: payments.createdAt,
+              account_name: accounts.name,
+            })
+            .from(payments)
+            .innerJoin(accounts, eq(payments.accountId, accounts.id))
+            .where(eq(payments.id, id))
+            .get();
+          return Response.json(payment, { status: 201 });
+        } catch (err) {
+          return validationError(err);
+        }
       },
     },
   };

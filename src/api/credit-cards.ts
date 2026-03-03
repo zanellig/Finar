@@ -1,271 +1,326 @@
-import { getDb } from "../db/database";
+import { eq, and, sql } from "drizzle-orm";
+import { getOrm } from "../db/database";
+import { creditCards, ccSpenditures, entities } from "../db/schema";
 import {
-  sanitizeString,
-  sanitizeNumber,
-  sanitizePositiveInt,
-  sanitizeEnum,
-  sanitizeUUID,
+  insertCreditCardSchema,
+  updateCreditCardSchema,
+  insertCcSpenditure1xSchema,
+  insertCcSpendInstallmentSchema,
   validationError,
-} from "../utils/sanitize";
+} from "../db/validation";
 
-const CURRENCIES = ["ARS", "USD"] as const;
+function getCardSpent(db: ReturnType<typeof getOrm>, cardId: string): number {
+  const result = db
+    .select({
+      total: sql<number>`COALESCE(SUM(${ccSpenditures.totalAmount}), 0)`,
+    })
+    .from(ccSpenditures)
+    .where(
+      and(
+        eq(ccSpenditures.creditCardId, cardId),
+        eq(ccSpenditures.isPaidOff, false),
+      ),
+    )
+    .get();
+  return result?.total ?? 0;
+}
+
+const cardSelect = {
+  id: creditCards.id,
+  entity_id: creditCards.entityId,
+  name: creditCards.name,
+  spend_limit: creditCards.spendLimit,
+  created_at: creditCards.createdAt,
+};
+
+const spendSelect = {
+  id: ccSpenditures.id,
+  credit_card_id: ccSpenditures.creditCardId,
+  description: ccSpenditures.description,
+  amount: ccSpenditures.amount,
+  currency: ccSpenditures.currency,
+  installments: ccSpenditures.installments,
+  monthly_amount: ccSpenditures.monthlyAmount,
+  total_amount: ccSpenditures.totalAmount,
+  remaining_installments: ccSpenditures.remainingInstallments,
+  is_paid_off: ccSpenditures.isPaidOff,
+  created_at: ccSpenditures.createdAt,
+};
 
 export function getCreditCardsRoutes() {
   return {
     "/api/credit-cards": {
       GET: () => {
-        const db = getDb();
+        const db = getOrm();
         const cards = db
-          .query(
-            `SELECT cc.*, e.name as entity_name, e.type as entity_type
-             FROM credit_cards cc
-             JOIN entities e ON cc.entity_id = e.id
-             ORDER BY cc.created_at DESC`,
-          )
+          .select({
+            ...cardSelect,
+            entity_name: entities.name,
+            entity_type: entities.type,
+          })
+          .from(creditCards)
+          .innerJoin(entities, eq(creditCards.entityId, entities.id))
+          .orderBy(creditCards.createdAt)
           .all();
 
-        // Calculate available limit for each card
-        const cardsWithLimits = (cards as any[]).map((card) => {
-          const spenditures = db
-            .query(
-              `SELECT COALESCE(SUM(total_amount), 0) as total_spent
-               FROM cc_spenditures
-               WHERE credit_card_id = $cardId AND is_paid_off = 0`,
-            )
-            .get({ cardId: card.id }) as any;
-
+        const result = cards.map((card) => {
+          const spent = getCardSpent(db, card.id);
           return {
             ...card,
-            total_spent: spenditures?.total_spent || 0,
-            available_limit: card.spend_limit - (spenditures?.total_spent || 0),
+            total_spent: spent,
+            available_limit: card.spend_limit - spent,
           };
         });
 
-        return Response.json(cardsWithLimits);
+        return Response.json(result);
       },
       POST: async (req: Request) => {
-        const db = getDb();
-        const body = await req.json().catch(() => null);
-        if (!body) return validationError("Invalid JSON body");
+        try {
+          const body = await req.json().catch(() => null);
+          if (!body)
+            return Response.json(
+              { error: "Invalid JSON body" },
+              { status: 400 },
+            );
 
-        const entityId = sanitizeUUID(body.entity_id);
-        const name = sanitizeString(body.name, 100);
-        const spendLimit = sanitizeNumber(body.spend_limit, 0, 999_999_999);
+          const data = insertCreditCardSchema.parse(body);
+          const db = getOrm();
 
-        if (!entityId) return validationError("Valid entity_id is required");
-        if (!name) return validationError("Name is required");
-        if (spendLimit === null)
-          return validationError("Spend limit must be a non-negative number");
+          const entity = db
+            .select({ id: entities.id })
+            .from(entities)
+            .where(eq(entities.id, data.entity_id))
+            .get();
+          if (!entity)
+            return Response.json(
+              { error: "Entity not found" },
+              { status: 400 },
+            );
 
-        const entity = db
-          .query("SELECT id FROM entities WHERE id = $id")
-          .get({ id: entityId });
-        if (!entity) return validationError("Entity not found");
+          const id = crypto.randomUUID();
+          db.insert(creditCards)
+            .values({
+              id,
+              entityId: data.entity_id,
+              name: data.name,
+              spendLimit: data.spend_limit,
+            })
+            .run();
 
-        const id = crypto.randomUUID();
-        db.query(
-          `INSERT INTO credit_cards (id, entity_id, name, spend_limit)
-           VALUES ($id, $entityId, $name, $spendLimit)`,
-        ).run({ id, entityId, name, spendLimit });
-
-        const card = db
-          .query("SELECT * FROM credit_cards WHERE id = $id")
-          .get({ id });
-        return Response.json(
-          { ...(card as any), total_spent: 0, available_limit: spendLimit },
-          { status: 201 },
-        );
+          const card = db
+            .select(cardSelect)
+            .from(creditCards)
+            .where(eq(creditCards.id, id))
+            .get();
+          return Response.json(
+            {
+              ...card,
+              total_spent: 0,
+              available_limit: data.spend_limit,
+            },
+            { status: 201 },
+          );
+        } catch (err) {
+          return validationError(err);
+        }
       },
     },
     "/api/credit-cards/:id": {
       GET: (req: Request) => {
-        const id = sanitizeUUID((req as any).params.id);
-        if (!id) return validationError("Invalid card ID");
+        const id = (req as any).params.id;
+        const db = getOrm();
 
-        const db = getDb();
         const card = db
-          .query(
-            `SELECT cc.*, e.name as entity_name FROM credit_cards cc JOIN entities e ON cc.entity_id = e.id WHERE cc.id = $id`,
-          )
-          .get({ id });
+          .select({
+            ...cardSelect,
+            entity_name: entities.name,
+          })
+          .from(creditCards)
+          .innerJoin(entities, eq(creditCards.entityId, entities.id))
+          .where(eq(creditCards.id, id))
+          .get();
         if (!card)
           return Response.json(
             { error: "Credit card not found" },
             { status: 404 },
           );
 
-        const spenditures = db
-          .query(
-            `SELECT * FROM cc_spenditures WHERE credit_card_id = $id ORDER BY created_at DESC`,
-          )
-          .all({ id });
+        const spenditureList = db
+          .select(spendSelect)
+          .from(ccSpenditures)
+          .where(eq(ccSpenditures.creditCardId, id))
+          .orderBy(ccSpenditures.createdAt)
+          .all();
 
-        const totalSpent = (spenditures as any[])
+        const totalSpent = spenditureList
           .filter((s) => !s.is_paid_off)
           .reduce((sum, s) => sum + s.total_amount, 0);
 
         return Response.json({
-          ...(card as any),
-          spenditures,
+          ...card,
+          spenditures: spenditureList,
           total_spent: totalSpent,
-          available_limit: (card as any).spend_limit - totalSpent,
+          available_limit: card.spend_limit - totalSpent,
         });
       },
       PUT: async (req: Request) => {
-        const id = sanitizeUUID((req as any).params.id);
-        if (!id) return validationError("Invalid card ID");
+        try {
+          const id = (req as any).params.id;
+          const db = getOrm();
 
-        const db = getDb();
-        const body = await req.json().catch(() => null);
-        if (!body) return validationError("Invalid JSON body");
+          const existing = db
+            .select({ id: creditCards.id })
+            .from(creditCards)
+            .where(eq(creditCards.id, id))
+            .get();
+          if (!existing)
+            return Response.json(
+              { error: "Credit card not found" },
+              { status: 404 },
+            );
 
-        const existing = db
-          .query("SELECT * FROM credit_cards WHERE id = $id")
-          .get({ id });
-        if (!existing)
-          return Response.json(
-            { error: "Credit card not found" },
-            { status: 404 },
-          );
+          const body = await req.json().catch(() => null);
+          if (!body)
+            return Response.json(
+              { error: "Invalid JSON body" },
+              { status: 400 },
+            );
 
-        const spendLimit = sanitizeNumber(body.spend_limit, 0, 999_999_999);
-        const name = sanitizeString(body.name, 100);
+          const data = updateCreditCardSchema.parse(body);
 
-        if (spendLimit !== null) {
-          db.query(
-            "UPDATE credit_cards SET spend_limit = $spendLimit WHERE id = $id",
-          ).run({
-            id,
-            spendLimit,
-          });
+          const values: Record<string, any> = {};
+          if (data.name !== undefined) values.name = data.name;
+          if (data.spend_limit !== undefined)
+            values.spendLimit = data.spend_limit;
+
+          db.update(creditCards)
+            .set(values)
+            .where(eq(creditCards.id, id))
+            .run();
+
+          const card = db
+            .select(cardSelect)
+            .from(creditCards)
+            .where(eq(creditCards.id, id))
+            .get();
+          return Response.json(card);
+        } catch (err) {
+          return validationError(err);
         }
-        if (name) {
-          db.query("UPDATE credit_cards SET name = $name WHERE id = $id").run({
-            id,
-            name,
-          });
-        }
-
-        const card = db
-          .query("SELECT * FROM credit_cards WHERE id = $id")
-          .get({ id });
-        return Response.json(card);
       },
       DELETE: (req: Request) => {
-        const id = sanitizeUUID((req as any).params.id);
-        if (!id) return validationError("Invalid card ID");
+        const id = (req as any).params.id;
+        const db = getOrm();
 
-        const db = getDb();
         const existing = db
-          .query("SELECT id FROM credit_cards WHERE id = $id")
-          .get({ id });
+          .select({ id: creditCards.id })
+          .from(creditCards)
+          .where(eq(creditCards.id, id))
+          .get();
         if (!existing)
           return Response.json(
             { error: "Credit card not found" },
             { status: 404 },
           );
 
-        db.query("DELETE FROM credit_cards WHERE id = $id").run({ id });
+        db.delete(creditCards).where(eq(creditCards.id, id)).run();
         return Response.json({ success: true });
       },
     },
     "/api/credit-cards/:id/spenditures": {
       GET: (req: Request) => {
-        const cardId = sanitizeUUID((req as any).params.id);
-        if (!cardId) return validationError("Invalid card ID");
-
-        const db = getDb();
-        const spenditures = db
-          .query(
-            "SELECT * FROM cc_spenditures WHERE credit_card_id = $cardId ORDER BY created_at DESC",
-          )
-          .all({ cardId });
-        return Response.json(spenditures);
+        const cardId = (req as any).params.id;
+        const db = getOrm();
+        const result = db
+          .select(spendSelect)
+          .from(ccSpenditures)
+          .where(eq(ccSpenditures.creditCardId, cardId))
+          .orderBy(ccSpenditures.createdAt)
+          .all();
+        return Response.json(result);
       },
       POST: async (req: Request) => {
-        const cardId = sanitizeUUID((req as any).params.id);
-        if (!cardId) return validationError("Invalid card ID");
+        try {
+          const cardId = (req as any).params.id;
+          const db = getOrm();
 
-        const db = getDb();
-        const card = db
-          .query("SELECT * FROM credit_cards WHERE id = $id")
-          .get({ id: cardId });
-        if (!card)
-          return Response.json(
-            { error: "Credit card not found" },
-            { status: 404 },
-          );
-
-        const body = await req.json().catch(() => null);
-        if (!body) return validationError("Invalid JSON body");
-
-        const description = sanitizeString(body.description, 200);
-        const currency = sanitizeEnum(body.currency, CURRENCIES) || "ARS";
-        const installments = sanitizePositiveInt(body.installments, 120) || 1;
-
-        if (!description) return validationError("Description is required");
-
-        // Installments only available in ARS
-        if (currency === "USD" && installments > 1) {
-          return validationError(
-            "Installments are only available in ARS payments",
-          );
-        }
-
-        let totalAmount: number;
-        let monthlyAmount: number;
-
-        if (installments === 1) {
-          // One-time payment
-          const amount = sanitizeNumber(body.amount, 0.01, 999_999_999);
-          if (amount === null)
-            return validationError("Amount must be a positive number");
-          totalAmount = amount;
-          monthlyAmount = amount;
-        } else {
-          // Installment payment - user can enter either monthly or total amount
-          if (body.monthly_amount != null) {
-            monthlyAmount = sanitizeNumber(
-              body.monthly_amount,
-              0.01,
-              999_999_999,
-            )!;
-            if (monthlyAmount === null)
-              return validationError("Monthly amount must be positive");
-            totalAmount = Math.round(monthlyAmount * installments * 100) / 100;
-          } else if (body.total_amount != null) {
-            totalAmount = sanitizeNumber(body.total_amount, 0.01, 999_999_999)!;
-            if (totalAmount === null)
-              return validationError("Total amount must be positive");
-            monthlyAmount =
-              Math.round((totalAmount / installments) * 100) / 100;
-          } else {
-            return validationError(
-              "Either monthly_amount or total_amount (or amount for one-time) is required",
+          const card = db
+            .select({ id: creditCards.id })
+            .from(creditCards)
+            .where(eq(creditCards.id, cardId))
+            .get();
+          if (!card)
+            return Response.json(
+              { error: "Credit card not found" },
+              { status: 404 },
             );
+
+          const body = await req.json().catch(() => null);
+          if (!body)
+            return Response.json(
+              { error: "Invalid JSON body" },
+              { status: 400 },
+            );
+
+          const installments =
+            typeof body.installments === "number" ? body.installments : 1;
+
+          let totalAmount: number;
+          let monthlyAmount: number;
+          let parsedInstallments: number;
+
+          if (installments <= 1) {
+            const data = insertCcSpenditure1xSchema.parse(body);
+            totalAmount = data.amount;
+            monthlyAmount = data.amount;
+            parsedInstallments = 1;
+          } else {
+            if (body.currency === "USD") {
+              return Response.json(
+                { error: "Installments are only available in ARS payments" },
+                { status: 400 },
+              );
+            }
+
+            const data = insertCcSpendInstallmentSchema.parse(body);
+            parsedInstallments = data.installments;
+
+            if (data.monthly_amount != null) {
+              monthlyAmount = data.monthly_amount;
+              totalAmount =
+                Math.round(monthlyAmount * parsedInstallments * 100) / 100;
+            } else {
+              totalAmount = data.total_amount!;
+              monthlyAmount =
+                Math.round((totalAmount / parsedInstallments) * 100) / 100;
+            }
           }
+
+          const id = crypto.randomUUID();
+          db.insert(ccSpenditures)
+            .values({
+              id,
+              creditCardId: cardId,
+              description: body.description?.trim(),
+              amount: parsedInstallments === 1 ? totalAmount : monthlyAmount,
+              currency: body.currency || "ARS",
+              installments: parsedInstallments,
+              monthlyAmount,
+              totalAmount,
+              remainingInstallments: parsedInstallments,
+              isPaidOff: false,
+            })
+            .run();
+
+          const spenditure = db
+            .select(spendSelect)
+            .from(ccSpenditures)
+            .where(eq(ccSpenditures.id, id))
+            .get();
+          return Response.json(spenditure, { status: 201 });
+        } catch (err) {
+          return validationError(err);
         }
-
-        const id = crypto.randomUUID();
-        db.query(
-          `INSERT INTO cc_spenditures (id, credit_card_id, description, amount, currency, installments, monthly_amount, total_amount, remaining_installments)
-           VALUES ($id, $cardId, $description, $amount, $currency, $installments, $monthlyAmount, $totalAmount, $remainingInstallments)`,
-        ).run({
-          id,
-          cardId,
-          description,
-          amount: installments === 1 ? totalAmount : monthlyAmount,
-          currency,
-          installments,
-          monthlyAmount,
-          totalAmount,
-          remainingInstallments: installments,
-        });
-
-        const spenditure = db
-          .query("SELECT * FROM cc_spenditures WHERE id = $id")
-          .get({ id });
-        return Response.json(spenditure, { status: 201 });
       },
     },
   };

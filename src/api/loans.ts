@@ -1,11 +1,7 @@
-import { getDb } from "../db/database";
-import {
-  sanitizeString,
-  sanitizeNumber,
-  sanitizePositiveInt,
-  sanitizeUUID,
-  validationError,
-} from "../utils/sanitize";
+import { eq } from "drizzle-orm";
+import { getOrm } from "../db/database";
+import { loans, entities, payments, accounts } from "../db/schema";
+import { insertLoanSchema, validationError } from "../db/validation";
 
 /**
  * CFTEA Loan Calculation
@@ -22,111 +18,142 @@ function calculateLoan(capital: number, installments: number, cftea: number) {
   };
 }
 
+const loanSelect = {
+  id: loans.id,
+  entity_id: loans.entityId,
+  name: loans.name,
+  capital: loans.capital,
+  installments: loans.installments,
+  cftea: loans.cftea,
+  total_owed: loans.totalOwed,
+  monthly_payment: loans.monthlyPayment,
+  remaining_installments: loans.remainingInstallments,
+  created_at: loans.createdAt,
+};
+
 export function getLoansRoutes() {
   return {
     "/api/loans": {
       GET: () => {
-        const db = getDb();
-        const loans = db
-          .query(
-            `SELECT l.*, e.name as entity_name, e.type as entity_type
-             FROM loans l
-             JOIN entities e ON l.entity_id = e.id
-             ORDER BY l.created_at DESC`,
-          )
+        const db = getOrm();
+        const result = db
+          .select({
+            ...loanSelect,
+            entity_name: entities.name,
+            entity_type: entities.type,
+          })
+          .from(loans)
+          .innerJoin(entities, eq(loans.entityId, entities.id))
+          .orderBy(loans.createdAt)
           .all();
-        return Response.json(loans);
+        return Response.json(result);
       },
       POST: async (req: Request) => {
-        const db = getDb();
-        const body = await req.json().catch(() => null);
-        if (!body) return validationError("Invalid JSON body");
+        try {
+          const body = await req.json().catch(() => null);
+          if (!body)
+            return Response.json(
+              { error: "Invalid JSON body" },
+              { status: 400 },
+            );
 
-        const entityId = sanitizeUUID(body.entity_id);
-        const name = sanitizeString(body.name, 100);
-        const capital = sanitizeNumber(body.capital, 0.01, 999_999_999);
-        const installments = sanitizePositiveInt(body.installments, 360);
-        const cftea = sanitizeNumber(body.cftea, 0.01, 9999);
+          const data = insertLoanSchema.parse(body);
+          const db = getOrm();
 
-        if (!entityId) return validationError("Valid entity_id is required");
-        if (!name) return validationError("Name is required");
-        if (capital === null)
-          return validationError("Capital must be a positive number");
-        if (installments === null)
-          return validationError("Installments must be 1-360");
-        if (cftea === null)
-          return validationError("CFTEA must be a positive percentage");
+          // Verify entity exists
+          const entity = db
+            .select({ id: entities.id })
+            .from(entities)
+            .where(eq(entities.id, data.entity_id))
+            .get();
+          if (!entity)
+            return Response.json(
+              { error: "Entity not found" },
+              { status: 400 },
+            );
 
-        // Verify entity exists
-        const entity = db
-          .query("SELECT id FROM entities WHERE id = $id")
-          .get({ id: entityId });
-        if (!entity) return validationError("Entity not found");
+          const { totalOwed, monthlyPayment } = calculateLoan(
+            data.capital,
+            data.installments,
+            data.cftea,
+          );
 
-        const { totalOwed, monthlyPayment } = calculateLoan(
-          capital,
-          installments,
-          cftea,
-        );
-        const id = crypto.randomUUID();
+          const id = crypto.randomUUID();
+          db.insert(loans)
+            .values({
+              id,
+              entityId: data.entity_id,
+              name: data.name,
+              capital: data.capital,
+              installments: data.installments,
+              cftea: data.cftea,
+              totalOwed,
+              monthlyPayment,
+              remainingInstallments: data.installments,
+            })
+            .run();
 
-        db.query(
-          `INSERT INTO loans (id, entity_id, name, capital, installments, cftea, total_owed, monthly_payment, remaining_installments)
-           VALUES ($id, $entityId, $name, $capital, $installments, $cftea, $totalOwed, $monthlyPayment, $remainingInstallments)`,
-        ).run({
-          id,
-          entityId,
-          name,
-          capital,
-          installments,
-          cftea,
-          totalOwed,
-          monthlyPayment,
-          remainingInstallments: installments,
-        });
-
-        const loan = db
-          .query(
-            `SELECT l.*, e.name as entity_name FROM loans l JOIN entities e ON l.entity_id = e.id WHERE l.id = $id`,
-          )
-          .get({ id });
-        return Response.json(loan, { status: 201 });
+          const loan = db
+            .select({
+              ...loanSelect,
+              entity_name: entities.name,
+            })
+            .from(loans)
+            .innerJoin(entities, eq(loans.entityId, entities.id))
+            .where(eq(loans.id, id))
+            .get();
+          return Response.json(loan, { status: 201 });
+        } catch (err) {
+          return validationError(err);
+        }
       },
     },
     "/api/loans/:id": {
       GET: (req: Request) => {
-        const id = sanitizeUUID((req as any).params.id);
-        if (!id) return validationError("Invalid loan ID");
+        const id = (req as any).params.id;
+        const db = getOrm();
 
-        const db = getDb();
         const loan = db
-          .query(
-            `SELECT l.*, e.name as entity_name FROM loans l JOIN entities e ON l.entity_id = e.id WHERE l.id = $id`,
-          )
-          .get({ id });
+          .select({
+            ...loanSelect,
+            entity_name: entities.name,
+          })
+          .from(loans)
+          .innerJoin(entities, eq(loans.entityId, entities.id))
+          .where(eq(loans.id, id))
+          .get();
         if (!loan)
           return Response.json({ error: "Loan not found" }, { status: 404 });
 
-        const payments = db
-          .query(
-            `SELECT p.*, a.name as account_name FROM payments p JOIN accounts a ON p.account_id = a.id WHERE p.type = 'loan' AND p.target_id = $id ORDER BY p.created_at DESC`,
-          )
-          .all({ id });
+        const loanPayments = db
+          .select({
+            id: payments.id,
+            amount: payments.amount,
+            description: payments.description,
+            created_at: payments.createdAt,
+            account_name: accounts.name,
+          })
+          .from(payments)
+          .innerJoin(accounts, eq(payments.accountId, accounts.id))
+          .where(eq(payments.targetId, id))
+          .orderBy(payments.createdAt)
+          .all();
 
-        return Response.json({ ...(loan as any), payments });
+        return Response.json({ ...loan, payments: loanPayments });
       },
       DELETE: (req: Request) => {
-        const id = sanitizeUUID((req as any).params.id);
-        if (!id) return validationError("Invalid loan ID");
+        const id = (req as any).params.id;
+        const db = getOrm();
 
-        const db = getDb();
         const existing = db
-          .query("SELECT id FROM loans WHERE id = $id")
-          .get({ id });
+          .select({ id: loans.id })
+          .from(loans)
+          .where(eq(loans.id, id))
+          .get();
         if (!existing)
           return Response.json({ error: "Loan not found" }, { status: 404 });
 
-        db.query("DELETE FROM loans WHERE id = $id").run({ id });
+        db.delete(loans).where(eq(loans.id, id)).run();
         return Response.json({ success: true });
       },
     },

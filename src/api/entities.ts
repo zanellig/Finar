@@ -1,101 +1,136 @@
-import { getDb } from "../db/database";
+import { eq } from "drizzle-orm";
+import { getOrm } from "../db/database";
+import { entities } from "../db/schema";
 import {
-  sanitizeString,
-  sanitizeEnum,
-  sanitizeUUID,
+  insertEntitySchema,
+  updateEntitySchema,
   validationError,
-} from "../utils/sanitize";
-
-const ENTITY_TYPES = ["bank", "wallet", "asset_manager"] as const;
+} from "../db/validation";
 
 export function getEntitiesRoutes() {
   return {
     "/api/entities": {
       GET: () => {
-        const db = getDb();
-        const entities = db
-          .query("SELECT * FROM entities ORDER BY created_at DESC")
+        const db = getOrm();
+        const result = db
+          .select({
+            id: entities.id,
+            name: entities.name,
+            type: entities.type,
+            created_at: entities.createdAt,
+          })
+          .from(entities)
+          .orderBy(entities.createdAt)
           .all();
-        return Response.json(entities);
+        return Response.json(result);
       },
       POST: async (req: Request) => {
-        const db = getDb();
-        const body = await req.json().catch(() => null);
-        if (!body) return validationError("Invalid JSON body");
+        try {
+          const body = await req.json().catch(() => null);
+          if (!body)
+            return Response.json(
+              { error: "Invalid JSON body" },
+              { status: 400 },
+            );
 
-        const name = sanitizeString(body.name, 100);
-        const type = sanitizeEnum(body.type, ENTITY_TYPES);
+          const data = insertEntitySchema.parse(body);
+          const db = getOrm();
+          const id = crypto.randomUUID();
 
-        if (!name) return validationError("Name is required");
-        if (!type)
-          return validationError(
-            "Type must be one of: bank, wallet, asset_manager",
-          );
+          db.insert(entities)
+            .values({ id, ...data })
+            .run();
 
-        const id = crypto.randomUUID();
-        db.query(
-          "INSERT INTO entities (id, name, type) VALUES ($id, $name, $type)",
-        ).run({ id, name, type });
-
-        const entity = db
-          .query("SELECT * FROM entities WHERE id = $id")
-          .get({ id });
-        return Response.json(entity, { status: 201 });
+          const entity = db
+            .select({
+              id: entities.id,
+              name: entities.name,
+              type: entities.type,
+              created_at: entities.createdAt,
+            })
+            .from(entities)
+            .where(eq(entities.id, id))
+            .get();
+          return Response.json(entity, { status: 201 });
+        } catch (err) {
+          return validationError(err);
+        }
       },
     },
     "/api/entities/:id": {
       GET: (req: Request) => {
-        const id = sanitizeUUID((req as any).params.id);
-        if (!id) return validationError("Invalid entity ID");
-
-        const db = getDb();
+        const id = (req as any).params.id;
+        const db = getOrm();
         const entity = db
-          .query("SELECT * FROM entities WHERE id = $id")
-          .get({ id });
+          .select({
+            id: entities.id,
+            name: entities.name,
+            type: entities.type,
+            created_at: entities.createdAt,
+          })
+          .from(entities)
+          .where(eq(entities.id, id))
+          .get();
+
         if (!entity)
           return Response.json({ error: "Entity not found" }, { status: 404 });
-
         return Response.json(entity);
       },
       PUT: async (req: Request) => {
-        const id = sanitizeUUID((req as any).params.id);
-        if (!id) return validationError("Invalid entity ID");
+        try {
+          const id = (req as any).params.id;
+          const db = getOrm();
 
-        const db = getDb();
-        const body = await req.json().catch(() => null);
-        if (!body) return validationError("Invalid JSON body");
+          const existing = db
+            .select({ id: entities.id })
+            .from(entities)
+            .where(eq(entities.id, id))
+            .get();
+          if (!existing)
+            return Response.json(
+              { error: "Entity not found" },
+              { status: 404 },
+            );
 
-        const existing = db
-          .query("SELECT * FROM entities WHERE id = $id")
-          .get({ id });
-        if (!existing)
-          return Response.json({ error: "Entity not found" }, { status: 404 });
+          const body = await req.json().catch(() => null);
+          if (!body)
+            return Response.json(
+              { error: "Invalid JSON body" },
+              { status: 400 },
+            );
 
-        const name = sanitizeString(body.name, 100) || (existing as any).name;
-        const type =
-          sanitizeEnum(body.type, ENTITY_TYPES) || (existing as any).type;
+          const data = updateEntitySchema.parse(body);
 
-        db.query(
-          "UPDATE entities SET name = $name, type = $type WHERE id = $id",
-        ).run({ id, name, type });
+          db.update(entities).set(data).where(eq(entities.id, id)).run();
 
-        const entity = db
-          .query("SELECT * FROM entities WHERE id = $id")
-          .get({ id });
-        return Response.json(entity);
+          const entity = db
+            .select({
+              id: entities.id,
+              name: entities.name,
+              type: entities.type,
+              created_at: entities.createdAt,
+            })
+            .from(entities)
+            .where(eq(entities.id, id))
+            .get();
+          return Response.json(entity);
+        } catch (err) {
+          return validationError(err);
+        }
       },
       DELETE: (req: Request) => {
-        const id = sanitizeUUID((req as any).params.id);
-        if (!id) return validationError("Invalid entity ID");
+        const id = (req as any).params.id;
+        const db = getOrm();
 
-        const db = getDb();
         const existing = db
-          .query("SELECT * FROM entities WHERE id = $id")
-          .get({ id });
+          .select({ id: entities.id })
+          .from(entities)
+          .where(eq(entities.id, id))
+          .get();
         if (!existing)
           return Response.json({ error: "Entity not found" }, { status: 404 });
 
-        db.query("DELETE FROM entities WHERE id = $id").run({ id });
+        db.delete(entities).where(eq(entities.id, id)).run();
         return Response.json({ success: true });
       },
     },

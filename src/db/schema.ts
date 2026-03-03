@@ -1,101 +1,124 @@
-import { Database } from "bun:sqlite";
+import { sqliteTable, text, real, integer } from "drizzle-orm/sqlite-core";
+import { sql } from "drizzle-orm";
 
-export function initializeSchema(db: Database): void {
-  db.run("PRAGMA journal_mode = WAL;");
-  db.run("PRAGMA foreign_keys = ON;");
+// ---- Entities ----
 
-  db.run(`
-    CREATE TABLE IF NOT EXISTS entities (
-      id TEXT PRIMARY KEY,
-      name TEXT NOT NULL,
-      type TEXT NOT NULL CHECK(type IN ('bank', 'wallet', 'asset_manager')),
-      created_at TEXT NOT NULL DEFAULT (datetime('now'))
-    )
-  `);
+export const entities = sqliteTable("entities", {
+  id: text("id").primaryKey(),
+  name: text("name").notNull(),
+  type: text("type", { enum: ["bank", "wallet", "asset_manager"] }).notNull(),
+  createdAt: text("created_at")
+    .notNull()
+    .default(sql`(datetime('now'))`),
+});
 
-  db.run(`
-    CREATE TABLE IF NOT EXISTS accounts (
-      id TEXT PRIMARY KEY,
-      entity_id TEXT NOT NULL,
-      name TEXT NOT NULL,
-      type TEXT NOT NULL CHECK(type IN ('savings', 'checking', 'interest')),
-      balance REAL NOT NULL DEFAULT 0,
-      currency TEXT NOT NULL DEFAULT 'ARS',
-      daily_extraction_limit REAL,
-      monthly_maintenance_cost REAL DEFAULT 0,
-      is_salary_account INTEGER NOT NULL DEFAULT 0,
-      overdraft_limit REAL DEFAULT 0,
-      tna_rate REAL DEFAULT 0,
-      created_at TEXT NOT NULL DEFAULT (datetime('now')),
-      FOREIGN KEY (entity_id) REFERENCES entities(id) ON DELETE CASCADE
-    )
-  `);
+// ---- Accounts ----
 
-  db.run(`
-    CREATE TABLE IF NOT EXISTS loans (
-      id TEXT PRIMARY KEY,
-      entity_id TEXT NOT NULL,
-      name TEXT NOT NULL DEFAULT '',
-      capital REAL NOT NULL,
-      installments INTEGER NOT NULL,
-      cftea REAL NOT NULL,
-      total_owed REAL NOT NULL,
-      monthly_payment REAL NOT NULL,
-      remaining_installments INTEGER NOT NULL,
-      created_at TEXT NOT NULL DEFAULT (datetime('now')),
-      FOREIGN KEY (entity_id) REFERENCES entities(id) ON DELETE CASCADE
-    )
-  `);
+export const accounts = sqliteTable("accounts", {
+  id: text("id").primaryKey(),
+  entityId: text("entity_id")
+    .notNull()
+    .references(() => entities.id, { onDelete: "cascade" }),
+  name: text("name").notNull(),
+  type: text("type", { enum: ["savings", "checking", "interest"] }).notNull(),
+  balance: real("balance").notNull().default(0),
+  currency: text("currency", { enum: ["ARS", "USD"] })
+    .notNull()
+    .default("ARS"),
+  dailyExtractionLimit: real("daily_extraction_limit"),
+  monthlyMaintenanceCost: real("monthly_maintenance_cost").default(0),
+  isSalaryAccount: integer("is_salary_account", { mode: "boolean" })
+    .notNull()
+    .default(false),
+  overdraftLimit: real("overdraft_limit").default(0),
+  tnaRate: real("tna_rate").default(0),
+  createdAt: text("created_at")
+    .notNull()
+    .default(sql`(datetime('now'))`),
+});
 
-  db.run(`
-    CREATE TABLE IF NOT EXISTS credit_cards (
-      id TEXT PRIMARY KEY,
-      entity_id TEXT NOT NULL,
-      name TEXT NOT NULL,
-      spend_limit REAL NOT NULL DEFAULT 0,
-      created_at TEXT NOT NULL DEFAULT (datetime('now')),
-      FOREIGN KEY (entity_id) REFERENCES entities(id) ON DELETE CASCADE
-    )
-  `);
+// ---- Loans ----
 
-  db.run(`
-    CREATE TABLE IF NOT EXISTS cc_spenditures (
-      id TEXT PRIMARY KEY,
-      credit_card_id TEXT NOT NULL,
-      description TEXT NOT NULL,
-      amount REAL NOT NULL,
-      currency TEXT NOT NULL DEFAULT 'ARS' CHECK(currency IN ('ARS', 'USD')),
-      installments INTEGER NOT NULL DEFAULT 1,
-      monthly_amount REAL NOT NULL DEFAULT 0,
-      total_amount REAL NOT NULL DEFAULT 0,
-      remaining_installments INTEGER NOT NULL DEFAULT 1,
-      is_paid_off INTEGER NOT NULL DEFAULT 0,
-      created_at TEXT NOT NULL DEFAULT (datetime('now')),
-      FOREIGN KEY (credit_card_id) REFERENCES credit_cards(id) ON DELETE CASCADE
-    )
-  `);
+export const loans = sqliteTable("loans", {
+  id: text("id").primaryKey(),
+  entityId: text("entity_id")
+    .notNull()
+    .references(() => entities.id, { onDelete: "cascade" }),
+  name: text("name").notNull().default(""),
+  capital: real("capital").notNull(),
+  installments: integer("installments").notNull(),
+  cftea: real("cftea").notNull(),
+  totalOwed: real("total_owed").notNull(),
+  monthlyPayment: real("monthly_payment").notNull(),
+  remainingInstallments: integer("remaining_installments").notNull(),
+  createdAt: text("created_at")
+    .notNull()
+    .default(sql`(datetime('now'))`),
+});
 
-  db.run(`
-    CREATE TABLE IF NOT EXISTS payments (
-      id TEXT PRIMARY KEY,
-      type TEXT NOT NULL CHECK(type IN ('cc', 'loan')),
-      target_id TEXT NOT NULL,
-      account_id TEXT NOT NULL,
-      amount REAL NOT NULL,
-      description TEXT NOT NULL DEFAULT '',
-      created_at TEXT NOT NULL DEFAULT (datetime('now')),
-      FOREIGN KEY (account_id) REFERENCES accounts(id) ON DELETE CASCADE
-    )
-  `);
+// ---- Credit Cards ----
 
-  db.run(`
-    CREATE TABLE IF NOT EXISTS exchange_rates (
-      id TEXT PRIMARY KEY,
-      pair TEXT NOT NULL,
-      buy_rate REAL NOT NULL,
-      sell_rate REAL NOT NULL,
-      source TEXT NOT NULL DEFAULT 'blue',
-      fetched_at TEXT NOT NULL DEFAULT (datetime('now'))
-    )
-  `);
-}
+export const creditCards = sqliteTable("credit_cards", {
+  id: text("id").primaryKey(),
+  entityId: text("entity_id")
+    .notNull()
+    .references(() => entities.id, { onDelete: "cascade" }),
+  name: text("name").notNull(),
+  spendLimit: real("spend_limit").notNull().default(0),
+  createdAt: text("created_at")
+    .notNull()
+    .default(sql`(datetime('now'))`),
+});
+
+// ---- CC Spenditures ----
+
+export const ccSpenditures = sqliteTable("cc_spenditures", {
+  id: text("id").primaryKey(),
+  creditCardId: text("credit_card_id")
+    .notNull()
+    .references(() => creditCards.id, { onDelete: "cascade" }),
+  description: text("description").notNull(),
+  amount: real("amount").notNull(),
+  currency: text("currency", { enum: ["ARS", "USD"] })
+    .notNull()
+    .default("ARS"),
+  installments: integer("installments").notNull().default(1),
+  monthlyAmount: real("monthly_amount").notNull().default(0),
+  totalAmount: real("total_amount").notNull().default(0),
+  remainingInstallments: integer("remaining_installments").notNull().default(1),
+  isPaidOff: integer("is_paid_off", { mode: "boolean" })
+    .notNull()
+    .default(false),
+  createdAt: text("created_at")
+    .notNull()
+    .default(sql`(datetime('now'))`),
+});
+
+// ---- Payments ----
+
+export const payments = sqliteTable("payments", {
+  id: text("id").primaryKey(),
+  type: text("type", { enum: ["cc", "loan"] }).notNull(),
+  targetId: text("target_id").notNull(),
+  accountId: text("account_id")
+    .notNull()
+    .references(() => accounts.id, { onDelete: "cascade" }),
+  amount: real("amount").notNull(),
+  description: text("description").notNull().default(""),
+  createdAt: text("created_at")
+    .notNull()
+    .default(sql`(datetime('now'))`),
+});
+
+// ---- Exchange Rates ----
+
+export const exchangeRates = sqliteTable("exchange_rates", {
+  id: text("id").primaryKey(),
+  pair: text("pair").notNull(),
+  buyRate: real("buy_rate").notNull(),
+  sellRate: real("sell_rate").notNull(),
+  source: text("source").notNull().default("blue"),
+  fetchedAt: text("fetched_at")
+    .notNull()
+    .default(sql`(datetime('now'))`),
+});

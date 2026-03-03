@@ -1,4 +1,5 @@
-import { getDb } from "../db/database";
+import { getDb, getOrm } from "../db/database";
+import { exchangeRates } from "../db/schema";
 
 const DOLAR_API_URL = "https://dolarapi.com/v1/dolares";
 
@@ -22,6 +23,7 @@ async function fetchDollarRates(): Promise<void> {
     const data: DolarApiResponse[] = await response.json();
     const db = getDb();
 
+    // Use raw prepared statement for bulk upsert (faster than ORM for this)
     const insertRate = db.query(
       `INSERT OR REPLACE INTO exchange_rates (id, pair, buy_rate, sell_rate, source, fetched_at)
        VALUES ($id, $pair, $buyRate, $sellRate, $source, datetime('now'))`,
@@ -46,10 +48,7 @@ async function fetchDollarRates(): Promise<void> {
 let rateInterval: ReturnType<typeof setInterval> | null = null;
 
 export function startRatesFetcher(): void {
-  // Fetch immediately on start
   fetchDollarRates();
-
-  // Then every 30 minutes
   rateInterval = setInterval(fetchDollarRates, 30 * 60 * 1000);
 }
 
@@ -64,9 +63,18 @@ export function getRatesRoutes() {
   return {
     "/api/rates": {
       GET: () => {
-        const db = getDb();
+        const db = getOrm();
         const rates = db
-          .query("SELECT * FROM exchange_rates ORDER BY source ASC")
+          .select({
+            id: exchangeRates.id,
+            pair: exchangeRates.pair,
+            buy_rate: exchangeRates.buyRate,
+            sell_rate: exchangeRates.sellRate,
+            source: exchangeRates.source,
+            fetched_at: exchangeRates.fetchedAt,
+          })
+          .from(exchangeRates)
+          .orderBy(exchangeRates.source)
           .all();
         return Response.json(rates);
       },
@@ -74,9 +82,18 @@ export function getRatesRoutes() {
     "/api/rates/refresh": {
       POST: async () => {
         await fetchDollarRates();
-        const db = getDb();
+        const db = getOrm();
         const rates = db
-          .query("SELECT * FROM exchange_rates ORDER BY source ASC")
+          .select({
+            id: exchangeRates.id,
+            pair: exchangeRates.pair,
+            buy_rate: exchangeRates.buyRate,
+            sell_rate: exchangeRates.sellRate,
+            source: exchangeRates.source,
+            fetched_at: exchangeRates.fetchedAt,
+          })
+          .from(exchangeRates)
+          .orderBy(exchangeRates.source)
           .all();
         return Response.json(rates);
       },
