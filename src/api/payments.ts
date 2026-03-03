@@ -1,4 +1,4 @@
-import { eq, sql } from "drizzle-orm";
+import { eq, sql, desc } from "drizzle-orm";
 import { getDb, getOrm } from "../db/database";
 import { payments, accounts, loans, creditCards } from "../db/schema";
 import { insertPaymentSchema, validationError } from "../db/validation";
@@ -22,7 +22,7 @@ export function getPaymentsRoutes() {
           })
           .from(payments)
           .innerJoin(accounts, eq(payments.accountId, accounts.id))
-          .orderBy(payments.createdAt)
+          .orderBy(desc(payments.createdAt))
           .all();
 
         // Enrich with target name

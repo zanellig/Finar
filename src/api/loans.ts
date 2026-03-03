@@ -1,4 +1,4 @@
-import { eq } from "drizzle-orm";
+import { eq, and } from "drizzle-orm";
 import { getOrm } from "../db/database";
 import { loans, entities, payments, accounts } from "../db/schema";
 import { insertLoanSchema, validationError } from "../db/validation";
@@ -135,7 +135,7 @@ export function getLoansRoutes() {
           })
           .from(payments)
           .innerJoin(accounts, eq(payments.accountId, accounts.id))
-          .where(eq(payments.targetId, id))
+          .where(and(eq(payments.type, "loan"), eq(payments.targetId, id)))
           .orderBy(payments.createdAt)
           .all();
 

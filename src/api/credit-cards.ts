@@ -262,8 +262,11 @@ export function getCreditCardsRoutes() {
               { status: 400 },
             );
 
+          const rawInstallments = Number(body.installments);
           const installments =
-            typeof body.installments === "number" ? body.installments : 1;
+            Number.isFinite(rawInstallments) && rawInstallments >= 1
+              ? Math.floor(rawInstallments)
+              : 1;
 
           let totalAmount: number;
           let monthlyAmount: number;
