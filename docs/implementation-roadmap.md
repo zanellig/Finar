@@ -112,6 +112,7 @@ Done when:
 ## PR 4 (P1): Migration System + Single Schema Source
 
 Goal: remove schema duplication and make DB evolution safe.
+Status: Complete.
 
 Files to add:
 
