@@ -16,10 +16,10 @@ export function getDashboardRoutes() {
       GET: () => {
         const db = getOrm();
 
-        // Net worth: sum of all account balances
-        const netWorthResult = db
+        // Total assets: sum of all account balances
+        const totalAssetsResult = db
           .select({
-            net_worth: sql<number>`COALESCE(SUM(${accounts.balance}), 0)`,
+            total: sql<number>`COALESCE(SUM(${accounts.balance}), 0)`,
           })
           .from(accounts)
           .get();
@@ -172,9 +172,13 @@ export function getDashboardRoutes() {
           .orderBy(exchangeRates.source)
           .all();
 
+        const totalAssets = totalAssetsResult?.total ?? 0;
+        const totalDebt =
+          (loanDebtResult?.total ?? 0) + (ccDebtResult?.total ?? 0);
+
         return Response.json({
-          net_worth: netWorthResult?.net_worth ?? 0,
-          total_debt: (loanDebtResult?.total ?? 0) + (ccDebtResult?.total ?? 0),
+          net_worth: totalAssets - totalDebt,
+          total_debt: totalDebt,
           monthly_obligations:
             (monthlyLoanResult?.total ?? 0) + (monthlyCCResult?.total ?? 0),
           loan_debt: loanDebtResult?.total ?? 0,
