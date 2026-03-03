@@ -2,7 +2,7 @@ CREATE TABLE `accounts` (
 	`id` text PRIMARY KEY NOT NULL,
 	`entity_id` text NOT NULL,
 	`name` text NOT NULL,
-	`type` text NOT NULL,
+	`type` text NOT NULL CHECK(`type` IN ('savings', 'checking', 'interest')),
 	`balance` real DEFAULT 0 NOT NULL,
 	`currency` text DEFAULT 'ARS' NOT NULL,
 	`daily_extraction_limit` real,
@@ -19,7 +19,7 @@ CREATE TABLE `cc_spenditures` (
 	`credit_card_id` text NOT NULL,
 	`description` text NOT NULL,
 	`amount` real NOT NULL,
-	`currency` text DEFAULT 'ARS' NOT NULL,
+	`currency` text DEFAULT 'ARS' NOT NULL CHECK(`currency` IN ('ARS', 'USD')),
 	`installments` integer DEFAULT 1 NOT NULL,
 	`monthly_amount` real DEFAULT 0 NOT NULL,
 	`total_amount` real DEFAULT 0 NOT NULL,
@@ -41,7 +41,7 @@ CREATE TABLE `credit_cards` (
 CREATE TABLE `entities` (
 	`id` text PRIMARY KEY NOT NULL,
 	`name` text NOT NULL,
-	`type` text NOT NULL,
+	`type` text NOT NULL CHECK(`type` IN ('bank', 'wallet', 'asset_manager')),
 	`created_at` text DEFAULT (datetime('now')) NOT NULL
 );
 --> statement-breakpoint
@@ -70,7 +70,7 @@ CREATE TABLE `loans` (
 --> statement-breakpoint
 CREATE TABLE `payments` (
 	`id` text PRIMARY KEY NOT NULL,
-	`type` text NOT NULL,
+	`type` text NOT NULL CHECK(`type` IN ('cc', 'loan')),
 	`target_id` text NOT NULL,
 	`account_id` text NOT NULL,
 	`amount` real NOT NULL,
