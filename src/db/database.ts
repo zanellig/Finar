@@ -48,7 +48,7 @@ function initDatabase(): Database {
 
   // Apply pending migrations — idempotent, safe on every startup
   const ormInstance = drizzle(db, { schema });
-  runMigrations(ormInstance);
+  runMigrations(ormInstance, db);
   orm = ormInstance;
 
   return db;
