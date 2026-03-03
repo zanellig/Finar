@@ -1,32 +1,29 @@
-import { eq } from "drizzle-orm";
+/**
+ * Entity routes — thin transport adapter.
+ * Parses requests, delegates to EntityService, maps errors to HTTP.
+ */
+
 import { getOrm } from "../db/database";
-import { entities } from "../db/schema";
-import {
-  insertEntitySchema,
-  updateEntitySchema,
-  validationError,
-} from "../db/validation";
+import { insertEntitySchema, updateEntitySchema } from "../db/validation";
+import { EntityService } from "../modules/entities/entity-service";
+import { routeParam, parseJsonBody } from "./http/request";
+import { mapErrorToResponse } from "./http/response";
+
+function getService() {
+  return new EntityService(getOrm());
+}
 
 export function getEntitiesRoutes() {
   return {
     "/api/entities": {
       GET: () => {
-        const db = getOrm();
-        const result = db
-          .select({
-            id: entities.id,
-            name: entities.name,
-            type: entities.type,
-            created_at: entities.createdAt,
-          })
-          .from(entities)
-          .orderBy(entities.createdAt)
-          .all();
+        const service = getService();
+        const result = service.listEntities();
         return Response.json(result);
       },
       POST: async (req: Request) => {
         try {
-          const body = await req.json().catch(() => null);
+          const body = await parseJsonBody(req);
           if (!body)
             return Response.json(
               { error: "Invalid JSON body" },
@@ -34,65 +31,29 @@ export function getEntitiesRoutes() {
             );
 
           const data = insertEntitySchema.parse(body);
-          const db = getOrm();
-          const id = crypto.randomUUID();
-
-          db.insert(entities)
-            .values({ id, ...data })
-            .run();
-
-          const entity = db
-            .select({
-              id: entities.id,
-              name: entities.name,
-              type: entities.type,
-              created_at: entities.createdAt,
-            })
-            .from(entities)
-            .where(eq(entities.id, id))
-            .get();
+          const service = getService();
+          const entity = service.createEntity(data);
           return Response.json(entity, { status: 201 });
         } catch (err) {
-          return validationError(err);
+          return mapErrorToResponse(err);
         }
       },
     },
     "/api/entities/:id": {
       GET: (req: Request) => {
-        const id = (req as any).params.id;
-        const db = getOrm();
-        const entity = db
-          .select({
-            id: entities.id,
-            name: entities.name,
-            type: entities.type,
-            created_at: entities.createdAt,
-          })
-          .from(entities)
-          .where(eq(entities.id, id))
-          .get();
-
-        if (!entity)
-          return Response.json({ error: "Entity not found" }, { status: 404 });
-        return Response.json(entity);
+        try {
+          const id = routeParam(req, "id");
+          const service = getService();
+          const entity = service.getEntity(id);
+          return Response.json(entity);
+        } catch (err) {
+          return mapErrorToResponse(err);
+        }
       },
       PUT: async (req: Request) => {
         try {
-          const id = (req as any).params.id;
-          const db = getOrm();
-
-          const existing = db
-            .select({ id: entities.id })
-            .from(entities)
-            .where(eq(entities.id, id))
-            .get();
-          if (!existing)
-            return Response.json(
-              { error: "Entity not found" },
-              { status: 404 },
-            );
-
-          const body = await req.json().catch(() => null);
+          const id = routeParam(req, "id");
+          const body = await parseJsonBody(req);
           if (!body)
             return Response.json(
               { error: "Invalid JSON body" },
@@ -100,38 +61,22 @@ export function getEntitiesRoutes() {
             );
 
           const data = updateEntitySchema.parse(body);
-
-          db.update(entities).set(data).where(eq(entities.id, id)).run();
-
-          const entity = db
-            .select({
-              id: entities.id,
-              name: entities.name,
-              type: entities.type,
-              created_at: entities.createdAt,
-            })
-            .from(entities)
-            .where(eq(entities.id, id))
-            .get();
+          const service = getService();
+          const entity = service.updateEntity(id, data);
           return Response.json(entity);
         } catch (err) {
-          return validationError(err);
+          return mapErrorToResponse(err);
         }
       },
       DELETE: (req: Request) => {
-        const id = (req as any).params.id;
-        const db = getOrm();
-
-        const existing = db
-          .select({ id: entities.id })
-          .from(entities)
-          .where(eq(entities.id, id))
-          .get();
-        if (!existing)
-          return Response.json({ error: "Entity not found" }, { status: 404 });
-
-        db.delete(entities).where(eq(entities.id, id)).run();
-        return Response.json({ success: true });
+        try {
+          const id = routeParam(req, "id");
+          const service = getService();
+          service.deleteEntity(id);
+          return Response.json({ success: true });
+        } catch (err) {
+          return mapErrorToResponse(err);
+        }
       },
     },
   };

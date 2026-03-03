@@ -4,12 +4,10 @@
  */
 
 import { getDb, getOrm } from "../db/database";
-import { insertPaymentSchema, validationError } from "../db/validation";
+import { insertPaymentSchema } from "../db/validation";
 import { PaymentService } from "../modules/payments/payment-service";
-import {
-  mapDomainErrorToResponse,
-  DomainError,
-} from "../modules/shared/errors";
+import { parseJsonBody } from "./http/request";
+import { mapErrorToResponse } from "./http/response";
 
 function getService() {
   return new PaymentService(getDb(), getOrm());
@@ -25,7 +23,7 @@ export function getPaymentsRoutes() {
       },
       POST: async (req: Request) => {
         try {
-          const body = await req.json().catch(() => null);
+          const body = await parseJsonBody(req);
           if (!body)
             return Response.json(
               { error: "Invalid JSON body" },
@@ -45,10 +43,7 @@ export function getPaymentsRoutes() {
 
           return Response.json(payment, { status: 201 });
         } catch (err) {
-          if (err instanceof DomainError) {
-            return mapDomainErrorToResponse(err);
-          }
-          return validationError(err);
+          return mapErrorToResponse(err);
         }
       },
     },

@@ -1,146 +1,39 @@
-import { eq, and, sql } from "drizzle-orm";
+/**
+ * Credit-card routes — thin transport adapter.
+ * Parses requests, delegates to CreditCardService, maps errors to HTTP.
+ */
+
 import { getOrm } from "../db/database";
-import { creditCards, ccSpenditures, entities } from "../db/schema";
 import {
   insertCreditCardSchema,
   updateCreditCardSchema,
   insertCcSpenditure1xSchema,
   insertCcSpendInstallmentSchema,
-  validationError,
 } from "../db/validation";
-import {
-  CurrencyConverter,
-  type ConversionOptions,
-} from "../modules/currency/convert";
-import { RatesRepository } from "../modules/currency/rates-repository";
-import type { Currency } from "../modules/currency/money";
-import { roundMoney } from "../modules/currency/money";
-import {
-  MissingRateError,
-  mapDomainErrorToResponse,
-} from "../modules/shared/errors";
+import { CreditCardService } from "../modules/credit-cards/credit-card-service";
+import { routeParam, parseJsonBody, parseConversionOpts } from "./http/request";
+import { mapErrorToResponse } from "./http/response";
 
-/** Parse conversion-related query params from a request URL. */
-function parseConversionOpts(req: Request): ConversionOptions {
-  const url = new URL(req.url);
-  const opts: ConversionOptions = {};
-
-  const rateSource = url.searchParams.get("rate_source");
-  if (rateSource && rateSource.trim().length > 0) {
-    opts.rateSource = rateSource.trim();
-  }
-
-  const customRateRaw = url.searchParams.get("custom_rate");
-  if (customRateRaw != null) {
-    const parsed = Number(customRateRaw);
-    if (Number.isFinite(parsed) && parsed > 0) {
-      opts.customRate = parsed;
-    }
-  }
-
-  return opts;
+function getService() {
+  return new CreditCardService(getOrm());
 }
-
-/**
- * Calculate total spent on a card in ARS, converting any USD spenditures.
- * Card spend_limit is always ARS, so we must convert to compare correctly.
- */
-function getCardSpentConverted(
-  db: ReturnType<typeof getOrm>,
-  cardId: string,
-  converter: CurrencyConverter,
-  opts: ConversionOptions,
-): number {
-  const rows = db
-    .select({
-      totalAmount: ccSpenditures.totalAmount,
-      currency: ccSpenditures.currency,
-    })
-    .from(ccSpenditures)
-    .where(
-      and(
-        eq(ccSpenditures.creditCardId, cardId),
-        eq(ccSpenditures.isPaidOff, false),
-      ),
-    )
-    .all();
-
-  return converter.sumToBase(
-    rows.map((s) => ({
-      amount: s.totalAmount,
-      currency: s.currency as Currency,
-    })),
-    opts,
-  );
-}
-
-const cardSelect = {
-  id: creditCards.id,
-  entity_id: creditCards.entityId,
-  name: creditCards.name,
-  spend_limit: creditCards.spendLimit,
-  created_at: creditCards.createdAt,
-};
-
-const spendSelect = {
-  id: ccSpenditures.id,
-  credit_card_id: ccSpenditures.creditCardId,
-  description: ccSpenditures.description,
-  amount: ccSpenditures.amount,
-  currency: ccSpenditures.currency,
-  installments: ccSpenditures.installments,
-  monthly_amount: ccSpenditures.monthlyAmount,
-  total_amount: ccSpenditures.totalAmount,
-  remaining_installments: ccSpenditures.remainingInstallments,
-  is_paid_off: ccSpenditures.isPaidOff,
-  created_at: ccSpenditures.createdAt,
-};
 
 export function getCreditCardsRoutes() {
   return {
     "/api/credit-cards": {
       GET: (req: Request) => {
         try {
-          const db = getOrm();
           const convOpts = parseConversionOpts(req);
-          const converter = new CurrencyConverter(new RatesRepository(db));
-
-          const cards = db
-            .select({
-              ...cardSelect,
-              entity_name: entities.name,
-              entity_type: entities.type,
-            })
-            .from(creditCards)
-            .innerJoin(entities, eq(creditCards.entityId, entities.id))
-            .orderBy(creditCards.createdAt)
-            .all();
-
-          const result = cards.map((card) => {
-            const spent = getCardSpentConverted(
-              db,
-              card.id,
-              converter,
-              convOpts,
-            );
-            return {
-              ...card,
-              total_spent: roundMoney(spent),
-              available_limit: roundMoney(card.spend_limit - spent),
-            };
-          });
-
+          const service = getService();
+          const result = service.listCards(convOpts);
           return Response.json(result);
         } catch (err) {
-          if (err instanceof MissingRateError) {
-            return mapDomainErrorToResponse(err);
-          }
-          throw err;
+          return mapErrorToResponse(err);
         }
       },
       POST: async (req: Request) => {
         try {
-          const body = await req.json().catch(() => null);
+          const body = await parseJsonBody(req);
           if (!body)
             return Response.json(
               { error: "Invalid JSON body" },
@@ -148,118 +41,30 @@ export function getCreditCardsRoutes() {
             );
 
           const data = insertCreditCardSchema.parse(body);
-          const db = getOrm();
-
-          const entity = db
-            .select({ id: entities.id })
-            .from(entities)
-            .where(eq(entities.id, data.entity_id))
-            .get();
-          if (!entity)
-            return Response.json(
-              { error: "Entity not found" },
-              { status: 400 },
-            );
-
-          const id = crypto.randomUUID();
-          db.insert(creditCards)
-            .values({
-              id,
-              entityId: data.entity_id,
-              name: data.name,
-              spendLimit: data.spend_limit,
-            })
-            .run();
-
-          const card = db
-            .select(cardSelect)
-            .from(creditCards)
-            .where(eq(creditCards.id, id))
-            .get();
-          return Response.json(
-            {
-              ...card,
-              total_spent: 0,
-              available_limit: data.spend_limit,
-            },
-            { status: 201 },
-          );
+          const service = getService();
+          const card = service.createCard(data);
+          return Response.json(card, { status: 201 });
         } catch (err) {
-          return validationError(err);
+          return mapErrorToResponse(err);
         }
       },
     },
     "/api/credit-cards/:id": {
       GET: (req: Request) => {
         try {
-          const id = (req as any).params.id;
-          const db = getOrm();
+          const id = routeParam(req, "id");
           const convOpts = parseConversionOpts(req);
-          const converter = new CurrencyConverter(new RatesRepository(db));
-
-          const card = db
-            .select({
-              ...cardSelect,
-              entity_name: entities.name,
-            })
-            .from(creditCards)
-            .innerJoin(entities, eq(creditCards.entityId, entities.id))
-            .where(eq(creditCards.id, id))
-            .get();
-          if (!card)
-            return Response.json(
-              { error: "Credit card not found" },
-              { status: 404 },
-            );
-
-          const spenditureList = db
-            .select(spendSelect)
-            .from(ccSpenditures)
-            .where(eq(ccSpenditures.creditCardId, id))
-            .orderBy(ccSpenditures.createdAt)
-            .all();
-
-          // Convert unpaid spenditures to ARS before summing
-          const totalSpent = converter.sumToBase(
-            spenditureList
-              .filter((s) => !s.is_paid_off)
-              .map((s) => ({
-                amount: s.total_amount,
-                currency: s.currency as Currency,
-              })),
-            convOpts,
-          );
-
-          return Response.json({
-            ...card,
-            spenditures: spenditureList,
-            total_spent: roundMoney(totalSpent),
-            available_limit: roundMoney(card.spend_limit - totalSpent),
-          });
+          const service = getService();
+          const card = service.getCard(id, convOpts);
+          return Response.json(card);
         } catch (err) {
-          if (err instanceof MissingRateError) {
-            return mapDomainErrorToResponse(err);
-          }
-          throw err;
+          return mapErrorToResponse(err);
         }
       },
       PUT: async (req: Request) => {
         try {
-          const id = (req as any).params.id;
-          const db = getOrm();
-
-          const existing = db
-            .select({ id: creditCards.id })
-            .from(creditCards)
-            .where(eq(creditCards.id, id))
-            .get();
-          if (!existing)
-            return Response.json(
-              { error: "Credit card not found" },
-              { status: 404 },
-            );
-
-          const body = await req.json().catch(() => null);
+          const id = routeParam(req, "id");
+          const body = await parseJsonBody(req);
           if (!body)
             return Response.json(
               { error: "Invalid JSON body" },
@@ -267,142 +72,70 @@ export function getCreditCardsRoutes() {
             );
 
           const data = updateCreditCardSchema.parse(body);
-
-          const values: Record<string, any> = {};
-          if (data.name !== undefined) values.name = data.name;
-          if (data.spend_limit !== undefined)
-            values.spendLimit = data.spend_limit;
-
-          db.update(creditCards)
-            .set(values)
-            .where(eq(creditCards.id, id))
-            .run();
-
-          const card = db
-            .select(cardSelect)
-            .from(creditCards)
-            .where(eq(creditCards.id, id))
-            .get();
+          const service = getService();
+          const card = service.updateCard(id, data);
           return Response.json(card);
         } catch (err) {
-          return validationError(err);
+          return mapErrorToResponse(err);
         }
       },
       DELETE: (req: Request) => {
-        const id = (req as any).params.id;
-        const db = getOrm();
-
-        const existing = db
-          .select({ id: creditCards.id })
-          .from(creditCards)
-          .where(eq(creditCards.id, id))
-          .get();
-        if (!existing)
-          return Response.json(
-            { error: "Credit card not found" },
-            { status: 404 },
-          );
-
-        db.delete(creditCards).where(eq(creditCards.id, id)).run();
-        return Response.json({ success: true });
+        try {
+          const id = routeParam(req, "id");
+          const service = getService();
+          service.deleteCard(id);
+          return Response.json({ success: true });
+        } catch (err) {
+          return mapErrorToResponse(err);
+        }
       },
     },
     "/api/credit-cards/:id/spenditures": {
       GET: (req: Request) => {
-        const cardId = (req as any).params.id;
-        const db = getOrm();
-        const result = db
-          .select(spendSelect)
-          .from(ccSpenditures)
-          .where(eq(ccSpenditures.creditCardId, cardId))
-          .orderBy(ccSpenditures.createdAt)
-          .all();
-        return Response.json(result);
+        try {
+          const cardId = routeParam(req, "id");
+          const service = getService();
+          const result = service.listSpenditures(cardId);
+          return Response.json(result);
+        } catch (err) {
+          return mapErrorToResponse(err);
+        }
       },
       POST: async (req: Request) => {
         try {
-          const cardId = (req as any).params.id;
-          const db = getOrm();
-
-          const card = db
-            .select({ id: creditCards.id })
-            .from(creditCards)
-            .where(eq(creditCards.id, cardId))
-            .get();
-          if (!card)
-            return Response.json(
-              { error: "Credit card not found" },
-              { status: 404 },
-            );
-
-          const body = await req.json().catch(() => null);
+          const cardId = routeParam(req, "id");
+          const body = await parseJsonBody(req);
           if (!body)
             return Response.json(
               { error: "Invalid JSON body" },
               { status: 400 },
             );
 
-          const rawInstallments = Number(body.installments);
+          // Validate with the appropriate schema based on installments
+          const rawBody = body as Record<string, unknown>;
+          const rawInstallments = Number(rawBody.installments);
           const installments =
             Number.isFinite(rawInstallments) && rawInstallments >= 1
               ? Math.floor(rawInstallments)
               : 1;
 
-          let totalAmount: number;
-          let monthlyAmount: number;
-          let parsedInstallments: number;
-
           if (installments <= 1) {
-            const data = insertCcSpenditure1xSchema.parse(body);
-            totalAmount = data.amount;
-            monthlyAmount = data.amount;
-            parsedInstallments = 1;
+            insertCcSpenditure1xSchema.parse(body);
           } else {
-            if (body.currency === "USD") {
+            if (rawBody.currency === "USD") {
               return Response.json(
                 { error: "Installments are only available in ARS payments" },
                 { status: 400 },
               );
             }
-
-            const data = insertCcSpendInstallmentSchema.parse(body);
-            parsedInstallments = data.installments;
-
-            if (data.monthly_amount != null) {
-              monthlyAmount = data.monthly_amount;
-              totalAmount =
-                Math.round(monthlyAmount * parsedInstallments * 100) / 100;
-            } else {
-              totalAmount = data.total_amount!;
-              monthlyAmount =
-                Math.round((totalAmount / parsedInstallments) * 100) / 100;
-            }
+            insertCcSpendInstallmentSchema.parse(body);
           }
 
-          const id = crypto.randomUUID();
-          db.insert(ccSpenditures)
-            .values({
-              id,
-              creditCardId: cardId,
-              description: body.description?.trim(),
-              amount: parsedInstallments === 1 ? totalAmount : monthlyAmount,
-              currency: body.currency || "ARS",
-              installments: parsedInstallments,
-              monthlyAmount,
-              totalAmount,
-              remainingInstallments: parsedInstallments,
-              isPaidOff: false,
-            })
-            .run();
-
-          const spenditure = db
-            .select(spendSelect)
-            .from(ccSpenditures)
-            .where(eq(ccSpenditures.id, id))
-            .get();
+          const service = getService();
+          const spenditure = service.createSpenditure(cardId, rawBody);
           return Response.json(spenditure, { status: 201 });
         } catch (err) {
-          return validationError(err);
+          return mapErrorToResponse(err);
         }
       },
     },

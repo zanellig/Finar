@@ -22,6 +22,9 @@ export class NotFoundError extends DomainError {}
 /** 409 — conflicting state (e.g. loan already paid off) */
 export class ConflictError extends DomainError {}
 
+/** 400 — input validation failure */
+export class ValidationError extends DomainError {}
+
 /** 503 — required exchange rate is missing; aggregation cannot proceed */
 export class MissingRateError extends DomainError {}
 
