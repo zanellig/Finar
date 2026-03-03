@@ -22,11 +22,17 @@ export class NotFoundError extends DomainError {}
 /** 409 — conflicting state (e.g. loan already paid off) */
 export class ConflictError extends DomainError {}
 
+/** 503 — required exchange rate is missing; aggregation cannot proceed */
+export class MissingRateError extends DomainError {}
+
 /**
  * Maps a domain error to an HTTP Response.
  * Falls back to 400 for unknown errors.
  */
 export function mapDomainErrorToResponse(error: unknown): Response {
+  if (error instanceof MissingRateError) {
+    return Response.json({ error: error.message }, { status: 503 });
+  }
   if (error instanceof NotFoundError) {
     return Response.json({ error: error.message }, { status: 404 });
   }

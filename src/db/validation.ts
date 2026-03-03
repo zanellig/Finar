@@ -20,6 +20,10 @@ export const selectCcSpenditureSchema = createSelectSchema(ccSpenditures);
 export const selectPaymentSchema = createSelectSchema(payments);
 export const selectExchangeRateSchema = createSelectSchema(exchangeRates);
 
+// ---- Shared enums ----
+
+export const currencyEnum = z.enum(["ARS", "USD"]);
+
 // ---- Insert schemas (request validation) ----
 // Accept snake_case from frontend, transform to camelCase for Drizzle
 

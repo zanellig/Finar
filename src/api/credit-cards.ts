@@ -8,11 +8,53 @@ import {
   insertCcSpendInstallmentSchema,
   validationError,
 } from "../db/validation";
+import {
+  CurrencyConverter,
+  type ConversionOptions,
+} from "../modules/currency/convert";
+import { RatesRepository } from "../modules/currency/rates-repository";
+import type { Currency } from "../modules/currency/money";
+import { roundMoney } from "../modules/currency/money";
+import {
+  MissingRateError,
+  mapDomainErrorToResponse,
+} from "../modules/shared/errors";
 
-function getCardSpent(db: ReturnType<typeof getOrm>, cardId: string): number {
-  const result = db
+/** Parse conversion-related query params from a request URL. */
+function parseConversionOpts(req: Request): ConversionOptions {
+  const url = new URL(req.url);
+  const opts: ConversionOptions = {};
+
+  const rateSource = url.searchParams.get("rate_source");
+  if (rateSource && rateSource.trim().length > 0) {
+    opts.rateSource = rateSource.trim();
+  }
+
+  const customRateRaw = url.searchParams.get("custom_rate");
+  if (customRateRaw != null) {
+    const parsed = Number(customRateRaw);
+    if (Number.isFinite(parsed) && parsed > 0) {
+      opts.customRate = parsed;
+    }
+  }
+
+  return opts;
+}
+
+/**
+ * Calculate total spent on a card in ARS, converting any USD spenditures.
+ * Card spend_limit is always ARS, so we must convert to compare correctly.
+ */
+function getCardSpentConverted(
+  db: ReturnType<typeof getOrm>,
+  cardId: string,
+  converter: CurrencyConverter,
+  opts: ConversionOptions,
+): number {
+  const rows = db
     .select({
-      total: sql<number>`COALESCE(SUM(${ccSpenditures.totalAmount}), 0)`,
+      totalAmount: ccSpenditures.totalAmount,
+      currency: ccSpenditures.currency,
     })
     .from(ccSpenditures)
     .where(
@@ -21,8 +63,15 @@ function getCardSpent(db: ReturnType<typeof getOrm>, cardId: string): number {
         eq(ccSpenditures.isPaidOff, false),
       ),
     )
-    .get();
-  return result?.total ?? 0;
+    .all();
+
+  return converter.sumToBase(
+    rows.map((s) => ({
+      amount: s.totalAmount,
+      currency: s.currency as Currency,
+    })),
+    opts,
+  );
 }
 
 const cardSelect = {
@@ -50,29 +99,44 @@ const spendSelect = {
 export function getCreditCardsRoutes() {
   return {
     "/api/credit-cards": {
-      GET: () => {
-        const db = getOrm();
-        const cards = db
-          .select({
-            ...cardSelect,
-            entity_name: entities.name,
-            entity_type: entities.type,
-          })
-          .from(creditCards)
-          .innerJoin(entities, eq(creditCards.entityId, entities.id))
-          .orderBy(creditCards.createdAt)
-          .all();
+      GET: (req: Request) => {
+        try {
+          const db = getOrm();
+          const convOpts = parseConversionOpts(req);
+          const converter = new CurrencyConverter(new RatesRepository(db));
 
-        const result = cards.map((card) => {
-          const spent = getCardSpent(db, card.id);
-          return {
-            ...card,
-            total_spent: spent,
-            available_limit: card.spend_limit - spent,
-          };
-        });
+          const cards = db
+            .select({
+              ...cardSelect,
+              entity_name: entities.name,
+              entity_type: entities.type,
+            })
+            .from(creditCards)
+            .innerJoin(entities, eq(creditCards.entityId, entities.id))
+            .orderBy(creditCards.createdAt)
+            .all();
 
-        return Response.json(result);
+          const result = cards.map((card) => {
+            const spent = getCardSpentConverted(
+              db,
+              card.id,
+              converter,
+              convOpts,
+            );
+            return {
+              ...card,
+              total_spent: roundMoney(spent),
+              available_limit: roundMoney(card.spend_limit - spent),
+            };
+          });
+
+          return Response.json(result);
+        } catch (err) {
+          if (err instanceof MissingRateError) {
+            return mapDomainErrorToResponse(err);
+          }
+          throw err;
+        }
       },
       POST: async (req: Request) => {
         try {
@@ -127,41 +191,57 @@ export function getCreditCardsRoutes() {
     },
     "/api/credit-cards/:id": {
       GET: (req: Request) => {
-        const id = (req as any).params.id;
-        const db = getOrm();
+        try {
+          const id = (req as any).params.id;
+          const db = getOrm();
+          const convOpts = parseConversionOpts(req);
+          const converter = new CurrencyConverter(new RatesRepository(db));
 
-        const card = db
-          .select({
-            ...cardSelect,
-            entity_name: entities.name,
-          })
-          .from(creditCards)
-          .innerJoin(entities, eq(creditCards.entityId, entities.id))
-          .where(eq(creditCards.id, id))
-          .get();
-        if (!card)
-          return Response.json(
-            { error: "Credit card not found" },
-            { status: 404 },
+          const card = db
+            .select({
+              ...cardSelect,
+              entity_name: entities.name,
+            })
+            .from(creditCards)
+            .innerJoin(entities, eq(creditCards.entityId, entities.id))
+            .where(eq(creditCards.id, id))
+            .get();
+          if (!card)
+            return Response.json(
+              { error: "Credit card not found" },
+              { status: 404 },
+            );
+
+          const spenditureList = db
+            .select(spendSelect)
+            .from(ccSpenditures)
+            .where(eq(ccSpenditures.creditCardId, id))
+            .orderBy(ccSpenditures.createdAt)
+            .all();
+
+          // Convert unpaid spenditures to ARS before summing
+          const totalSpent = converter.sumToBase(
+            spenditureList
+              .filter((s) => !s.is_paid_off)
+              .map((s) => ({
+                amount: s.total_amount,
+                currency: s.currency as Currency,
+              })),
+            convOpts,
           );
 
-        const spenditureList = db
-          .select(spendSelect)
-          .from(ccSpenditures)
-          .where(eq(ccSpenditures.creditCardId, id))
-          .orderBy(ccSpenditures.createdAt)
-          .all();
-
-        const totalSpent = spenditureList
-          .filter((s) => !s.is_paid_off)
-          .reduce((sum, s) => sum + s.total_amount, 0);
-
-        return Response.json({
-          ...card,
-          spenditures: spenditureList,
-          total_spent: totalSpent,
-          available_limit: card.spend_limit - totalSpent,
-        });
+          return Response.json({
+            ...card,
+            spenditures: spenditureList,
+            total_spent: roundMoney(totalSpent),
+            available_limit: roundMoney(card.spend_limit - totalSpent),
+          });
+        } catch (err) {
+          if (err instanceof MissingRateError) {
+            return mapDomainErrorToResponse(err);
+          }
+          throw err;
+        }
       },
       PUT: async (req: Request) => {
         try {
