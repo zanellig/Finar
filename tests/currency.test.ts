@@ -46,6 +46,24 @@ describe("roundMoney — IEEE 754 decimal safety", () => {
   it("rounds large values correctly", () => {
     expect(roundMoney(123456.785)).toBe(123456.79);
   });
+
+  it("handles values that stringify in scientific notation (1e21)", () => {
+    expect(roundMoney(1e21)).toBe(1e21);
+    expect(Number.isFinite(roundMoney(1e21))).toBe(true);
+  });
+
+  it("handles very small scientific-notation values", () => {
+    expect(roundMoney(5e-7)).toBe(0);
+    expect(Number.isFinite(roundMoney(5e-7))).toBe(true);
+  });
+
+  it("passes through Infinity without crashing", () => {
+    expect(roundMoney(Infinity)).toBe(Infinity);
+  });
+
+  it("passes through NaN without crashing", () => {
+    expect(roundMoney(NaN)).toBeNaN();
+  });
 });
 
 // ── Helpers ──────────────────────────────────────────────────────

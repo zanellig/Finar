@@ -28,7 +28,19 @@ export const DEFAULT_RATE_SOURCE = "contadoconliqui";
  * multiplication to avoid IEEE 754 midpoint errors.
  * e.g. Math.round(1.005 * 100) / 100 → 1.00 (wrong)
  *      roundMoney(1.005)              → 1.01 (correct)
+ *
+ * For numbers that stringify in scientific notation (e.g. 1e21),
+ * the e-shift trick would produce "1e+21e2" (unparseable), so we
+ * fall back to float multiplication. At that magnitude IEEE 754
+ * already cannot represent individual cents.
  */
 export function roundMoney(n: number): number {
-  return Number(Math.round(parseFloat(n + "e2")) + "e-2");
+  const result = Number(Math.round(parseFloat(n + "e2")) + "e-2");
+  if (!Number.isFinite(result)) {
+    // n stringifies in scientific notation (e.g. 1e21), producing
+    // "1e+21e2" which parseFloat truncates. At this magnitude n
+    // has no representable decimal digits, so return it unchanged.
+    return n;
+  }
+  return result;
 }
