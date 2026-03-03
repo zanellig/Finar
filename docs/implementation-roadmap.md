@@ -1,202 +1,175 @@
-# Production Roadmap (First 10 PRs)
+# Production Roadmap (Status as of March 3, 2026)
 
-This roadmap covers every finding from the audit, with your requested priorities:
+This roadmap tracks the first 10 PRs and reflects the current repository state.
 
-- Single-user installable app; **no auth work included**.
-- `P0` correctness and route/service/repository separation are first.
-- End-to-end type safety is the **last** phase.
+Priorities stay the same:
 
-## Delivery Rules
+- Single-user installable app; no auth scope.
+- P0 correctness and route/service/repository separation first.
+- End-to-end type safety is last.
 
-- Keep routes thin: parse/validate request, call service, map response.
-- Put business rules in services, DB access in repositories.
-- Every money mutation must be atomic and checked in-transaction.
-- Multi-currency math must always go through one conversion module.
-- Every PR adds tests for the behavior it changes.
+## Current Repository Baseline
 
-## PR 1 (P0): Atomic Payment Engine + Card Settlement Fix
+Implemented structure today:
 
-Goal: fix correctness bugs in `payments` and remove race-prone flow.
-Status: Complete.
+- `src/api/*` thin route adapters plus shared helpers in `src/api/http/{request,response}.ts`.
+- `src/modules/*` organized by domain with `*-service.ts`, `*-repository.ts`, `*-types.ts`.
+- `src/modules/currency/*` centralizes ARS/USD conversion.
+- `src/db/migrate.ts` applies migrations and provides `createTestDb()` for tests.
+- Tests currently live in `tests/` (`payments`, `currency`, `migrations`).
 
-Files to add:
+## PR Status Summary
+
+| PR | Title | Status | Notes |
+| --- | --- | --- | --- |
+| 1 | Atomic Payment Engine + Card Settlement Fix | Complete | Payment transaction logic and invariants are in place. |
+| 2 | Currency Domain Unification | Complete | Currency module and conversion-based aggregations are live. |
+| 3 | Route Layering Refactor Across APIs | Complete | Routes are thin and use shared HTTP helpers. |
+| 4 | Migration System + Single Schema Source | Complete | Drizzle migrations run at startup with legacy baseline support. |
+| 5 | Query Performance + Indexes + N+1 Removal | Pending | N+1 patterns still exist; no index migration beyond `0000_initial.sql`. |
+| 6 | Financial Invariant Test Suite | In Progress | Core suites exist, but concurrency/load and CI wiring are incomplete. |
+| 7 | Runtime Hardening for Installable Production | Pending | No health route, backup/restore ops scripts, or graceful shutdown hooks yet. |
+| 8 | Frontend Module Split and Typed UI State | Pending | Pages are still monolithic and `src/frontend/api.ts` uses `any`. |
+| 9 | CI Quality Gates | Pending | No `.github/workflows/ci.yml`. |
+| 10 | End-to-End Type Safety | Pending | No shared contract module; frontend API surface still untyped (`any`). |
+
+## Completed PR Notes
+
+### PR 1 (P0) Complete
+
+Delivered in:
 
 - `src/modules/payments/payment-service.ts`
 - `src/modules/payments/payment-repository.ts`
 - `src/modules/payments/payment-types.ts`
 - `src/modules/shared/errors.ts`
-
-Files to change:
-
 - `src/api/payments.ts`
-- `src/db/validation.ts`
 
-Scope:
+Verification:
 
-- Move validation + business logic out of route.
-- Handle loan and credit-card payment branches in one transaction.
-- For loan payments: decrement installments only when amount matches expected installment rule.
-- For card payments: reduce unpaid card debt (`cc_spenditures`) deterministically.
-- Re-check account balance and target state inside transaction.
+- `tests/payments.test.ts` covers loan/card settlement and balance guards.
 
-Done when:
+### PR 2 (P0) Complete
 
-- Concurrent requests cannot overdraw below allowed limit.
-- Loan installments cannot go negative.
-- Card debt/available limit updates after payment.
-- `bun test` has integration tests for these invariants.
-
-## PR 2 (P0): Currency Domain Unification
-
-Goal: stop ARS/USD mixed arithmetic.
-Status: Complete.
-
-Files to add:
+Delivered in:
 
 - `src/modules/currency/money.ts`
 - `src/modules/currency/rates-repository.ts`
 - `src/modules/currency/convert.ts`
+- `src/modules/dashboard/*`
+- `src/modules/credit-cards/*`
 
-Files to change:
+Verification:
 
-- `src/api/dashboard.ts`
-- `src/api/credit-cards.ts`
-- `src/api/payments.ts`
-- `src/db/validation.ts`
+- `tests/currency.test.ts` covers mixed-currency totals and missing-rate behavior.
 
-Scope:
+### PR 3 (P0) Complete
 
-- Define base-currency output policy for aggregates (e.g., ARS).
-- Convert balances/debts/limits before summing.
-- Add “missing rate” domain error and fail safely instead of silent bad totals.
-- Document conversion source preference (e.g., `blue`) and timestamp handling.
+Delivered in:
 
-Done when:
+- `src/modules/accounts/*`
+- `src/modules/loans/*`
+- `src/modules/credit-cards/*`
+- `src/modules/entities/*`
+- `src/modules/dashboard/*`
+- `src/api/http/request.ts`
+- `src/api/http/response.ts`
 
-- Dashboard totals are mathematically consistent with mixed-currency fixtures.
-- Card debt and available limit use conversion rules, not raw sum.
+Note: the route param helper is `routeParam()` in `src/api/http/request.ts` (not a separate `route-params.ts`).
 
-## PR 3 (P0): Route Layering Refactor Across APIs
+### PR 4 (P1) Complete
 
-Goal: remove mixed validation/business/DB/response logic from route files.
-Status: Complete.
-
-Files to add:
-
-- `src/modules/accounts/{account-service.ts,account-repository.ts,account-types.ts}`
-- `src/modules/loans/{loan-service.ts,loan-repository.ts,loan-types.ts}`
-- `src/modules/credit-cards/{credit-card-service.ts,credit-card-repository.ts,credit-card-types.ts}`
-- `src/modules/entities/{entity-service.ts,entity-repository.ts,entity-types.ts}`
-- `src/modules/dashboard/{dashboard-service.ts,dashboard-repository.ts,dashboard-types.ts}`
-- `src/api/http/{request.ts,response.ts,route-params.ts}`
-
-Files to change:
-
-- `src/api/accounts.ts`
-- `src/api/loans.ts`
-- `src/api/credit-cards.ts`
-- `src/api/entities.ts`
-- `src/api/dashboard.ts`
-
-Scope:
-
-- Keep each route file as transport adapter only.
-- Replace `(req as any).params` with typed param helper.
-- Standardize error mapping (`400` validation, `404` not found, `409` conflict, `500` unexpected).
-
-Done when:
-
-- Route handlers are mostly request parsing + service calls + response mapping.
-- No new business rules live in route files.
-
-## PR 4 (P1): Migration System + Single Schema Source
-
-Goal: remove schema duplication and make DB evolution safe.
-Status: Complete.
-
-Files to add:
+Delivered in:
 
 - `drizzle.config.ts`
-- `src/db/migrations/*`
+- `src/db/migrations/0000_initial.sql`
 - `src/db/migrate.ts`
-
-Files to change:
-
 - `src/db/database.ts`
-- `src/db/schema.ts`
-- `src/server.ts`
-- `package.json`
-- `README.md`
 
-Scope:
+Verification:
 
-- Adopt Drizzle migrations as canonical schema source.
-- Remove raw `CREATE TABLE IF NOT EXISTS` duplication.
-- Add a migration runner in `src/db/migrate.ts` and call it during server bootstrap.
-- Apply migrations automatically on first app startup before `Bun.serve()` starts accepting requests.
-- Keep startup migration idempotent so repeated launches are safe for existing installations.
+- `tests/migrations.test.ts` validates baseline and enum-like constraints.
 
-Done when:
+## Pending PR Plans
 
-- New install and existing DB upgrade are both reproducible.
-- Schema changes are tracked as migrations only.
-- First startup on an outdated DB applies pending migrations successfully without manual commands.
+### PR 5 (P1): Query Performance + Indexes + N+1 Removal
 
-## PR 5 (P1): Query Performance + Indexes + N+1 Removal
-
-Goal: prevent scale breakage in high-read endpoints.
+Goal: remove avoidable query amplification and add production indexes.
 
 Files to add:
 
-- new migration file for indexes in `src/db/migrations/*`
+- generated migration file from `bun run db:generate` (name may vary by Drizzle generation)
 
 Files to change:
 
-- `src/api/payments.ts`
-- `src/api/credit-cards.ts`
-- `src/api/dashboard.ts`
-- relevant repositories under `src/modules/**`
+- `src/modules/payments/payment-repository.ts`
+- `src/modules/dashboard/dashboard-repository.ts`
+- `src/modules/dashboard/dashboard-service.ts`
+- `src/modules/credit-cards/credit-card-service.ts`
+- `src/db/schema.ts` (declare indexes here so Drizzle generates migration SQL)
 
-Scope:
+Known hotspots now:
 
-- Add indexes on `entity_id`, `credit_card_id`, `account_id`, `target_id`, `created_at`.
-- Replace per-row follow-up queries with joins/aggregates.
-- Keep response shape unchanged unless explicitly versioned.
+- `PaymentRepository.getAllPaymentsEnriched()` performs target lookups per row.
+- `DashboardService` calls `getCardUnpaidSpenditures()` per card (N+1).
+
+Required indexes:
+
+- `accounts(entity_id)`
+- `loans(entity_id)`
+- `credit_cards(entity_id)`
+- `payments(account_id)`
+- `payments(target_id)`
+- `cc_spenditures(credit_card_id)`
+- `payments(created_at)`
+- `cc_spenditures(created_at)`
 
 Done when:
 
-- No N+1 patterns remain in audited endpoints.
-- Query plans confirm index usage on key paths.
+- Enriched payments and dashboard card totals are resolved without per-row queries.
+- Migration applies the new indexes safely.
+- Indexes are declared in schema definitions and generated into migrations, not hand-authored by default.
 
-## PR 6 (P1): Financial Invariant Test Suite
+Migration policy for PR 5 and future schema changes:
 
-Goal: lock in correctness for money workflows.
+- Do not manually edit migration SQL files under normal flow.
+- Declare schema/index changes in `src/db/schema.ts` and run `bun run db:generate`.
+- Exception: direct migration edits are allowed only to fix broken `db:generate`/`db:migrate` output.
+
+### PR 6 (P1): Financial Invariant Test Suite
+
+Goal: complete coverage for concurrency and regression guardrails.
+
+Status today: partial completion.
+
+Existing:
+
+- `tests/payments.test.ts`
+- `tests/currency.test.ts`
+- `tests/migrations.test.ts`
 
 Files to add:
 
-- `test/helpers/test-db.ts`
-- `test/integration/payments.test.ts`
-- `test/integration/dashboard-currency.test.ts`
-- `test/integration/credit-card-settlement.test.ts`
-- `test/integration/overdraft.test.ts`
+- `tests/helpers/test-db.ts` (shared fixture/bootstrap helper)
+- `tests/dashboard.test.ts` (or split by domain)
+- `tests/overdraft-concurrency.test.ts` (parallel payment attempts)
+- queue module/tests for serialized mutation execution where parallel attempts can violate invariants
 
 Files to change:
 
-- `package.json`
-
-Scope:
-
-- Bun test setup with isolated DB per test run.
-- Cover atomicity, settlement, currency totals, overdraft constraints.
+- `tests/payments.test.ts`
+- `package.json` (optional explicit `test` script)
 
 Done when:
 
-- `bun test` runs in CI and locally.
-- Core invariants fail loudly on regression.
+- Concurrency-sensitive invariants are tested with parallel operations.
+- Test helpers are centralized and reused.
+- A queue model is implemented for applicable mutation paths and validated in tests.
+- The implementing agent (human or AI) audits all write/concurrency patterns to identify where queueing should also be applied.
 
-## PR 7 (P1): Runtime Hardening for Installable Production
+### PR 7 (P1): Runtime Hardening for Installable Production
 
-Goal: production basics for single-user desktop/server install.
+Goal: add operator-safe runtime behavior.
 
 Files to add:
 
@@ -212,19 +185,21 @@ Files to change:
 
 Scope:
 
-- Add health endpoint (`/api/health`).
-- Manage lifecycle: start/stop rates fetcher on process signals.
-- Add backup/restore command workflow for SQLite.
-- Improve logs format for startup, job failures, critical operations.
+- Add `/api/health` endpoint.
+- Wire graceful shutdown to stop interval jobs and close DB.
+- Document backup and restore flow for SQLite DB file.
+- Support controlled application exit triggered from frontend UX, not only OS signals.
+- Keep syscall signal handling for process shutdown (`SIGTERM` and `SIGINT`) in parallel with frontend-triggered shutdown.
 
 Done when:
 
-- Graceful shutdown closes jobs and DB cleanly.
-- Operator has documented backup/restore steps.
+- Server exits cleanly on `SIGTERM`/`SIGINT`.
+- Frontend can request a clean shutdown path for desktop/installable usage.
+- Operator has documented backup/restore commands.
 
-## PR 8 (P2): Frontend Module Split and Typed UI State
+### PR 8 (P2): Frontend Module Split and Typed UI State
 
-Goal: reduce large-page risk and prep for contract typing.
+Goal: reduce page complexity and prepare typed API integration.
 
 Files to add:
 
@@ -240,20 +215,18 @@ Files to change:
 - `src/frontend/pages/Payments.tsx`
 - `src/frontend/api.ts`
 
-Scope:
+Current signal:
 
-- Split monolithic pages into feature components/hooks.
-- Remove local `any` in critical page state.
-- Keep UI behavior stable.
+- Large page files (`Dashboard.tsx`, `CreditCards.tsx`, etc.) and `api.ts` uses `any` extensively.
 
 Done when:
 
-- Large page files are substantially reduced.
-- Feature logic is easier to test and extend.
+- Feature logic is split into modules/hooks.
+- UI state and fetch results are typed without `any` in frontend API calls.
 
-## PR 9 (P2): CI Quality Gates
+### PR 9 (P2): CI Quality Gates
 
-Goal: prevent regressions before release.
+Goal: automatic quality checks for every PR.
 
 Files to add:
 
@@ -261,21 +234,22 @@ Files to add:
 
 Files to change:
 
-- `README.md`
 - `package.json`
+- `README.md`
 
 Scope:
 
-- Run `bunx tsc --noEmit`, `bun run build`, `bun test`.
-- Add artifact/build checks for release binaries as needed.
+- Run `bunx tsc --noEmit`.
+- Run `bun run build`.
+- Run `bun test`.
 
 Done when:
 
-- PRs fail automatically on type/build/test regressions.
+- PRs fail on type/build/test regression in CI.
 
-## PR 10 (P2, Final): End-to-End Type Safety
+### PR 10 (P2, Final): End-to-End Type Safety
 
-Goal: implement contract sharing as final phase (per your request).
+Goal: remove untyped API boundaries between frontend and backend.
 
 Primary reference:
 
@@ -283,38 +257,38 @@ Primary reference:
 
 Files to add:
 
-- `src/shared/contracts/*` (or equivalent chosen in the doc)
+- `src/shared/contracts/*`
 
 Files to change:
 
 - `src/frontend/api.ts`
-- `src/api/*.ts` (progressively)
+- `src/api/*.ts` (progressive adoption)
 - `src/db/validation.ts`
 
 Scope:
 
-- Replace API `any` usage with shared contract types.
-- Ensure route handlers and frontend calls share request/response types.
-- Keep runtime validation (Zod) in place.
+- Define shared request/response contract schemas.
+- Use inferred shared types in route handlers and frontend client functions.
+- Keep runtime validation with Zod.
 
 Done when:
 
-- Frontend compile-time errors surface on backend contract changes.
-- No `any` in API client surface.
+- Backend contract changes break frontend compile where incompatible.
+- `src/frontend/api.ts` no longer exports `any`-typed API methods.
 
 ## Finding Coverage Matrix
 
-- Credit-card payment settlement bug: PR 1
-- Mixed-currency arithmetic bug: PR 2
-- Payment race conditions: PR 1
-- Loan installment decrement bug: PR 1
-- Route files mixing layers: PR 3
-- Schema duplication / migration gap: PR 4
-- N+1 queries + missing indexes: PR 5
-- Missing financial tests: PR 6
-- Generic error handling: PR 3
-- Background job lifecycle: PR 7
-- Observability + health: PR 7
-- Backup/restore plan: PR 7
-- CI gates: PR 9
-- End-to-end type safety last: PR 10
+- Credit-card payment settlement bug: PR 1 complete
+- Mixed-currency arithmetic bug: PR 2 complete
+- Payment race conditions: PR 1 complete
+- Loan installment decrement bug: PR 1 complete
+- Route files mixing layers: PR 3 complete
+- Schema duplication / migration gap: PR 4 complete
+- N+1 queries + missing indexes: PR 5 pending
+- Missing financial tests: PR 6 in progress
+- Background job lifecycle: PR 7 pending
+- Observability + health: PR 7 pending
+- Backup/restore plan: PR 7 pending
+- Frontend module decomposition: PR 8 pending
+- CI gates: PR 9 pending
+- End-to-end type safety: PR 10 pending

@@ -1,20 +1,39 @@
 # Migration Fix Notes
 
-## Findings
+Status as of March 3, 2026.
 
-- `bun run db:migrate` was reading `drizzle.config.ts` without `dbCredentials.url`, causing `url: undefined`.
-- `src/db/migrations/0000_initial.sql` had lost DB-level enum `CHECK` constraints that existed in the legacy bootstrap schema.
+## Issue Summary
 
-## Fix
+- `bun run db:migrate` previously read `drizzle.config.ts` without a valid SQLite URL.
+- Initial migration had drift from legacy bootstrap constraints.
 
-- Added a shared SQLite path resolver: `src/db/sqlite-path.ts`.
-- Updated `src/db/database.ts` and `drizzle.config.ts` to use the shared resolver, with `drizzle.config.ts` using a `file:` libsql URL.
-- Restored enum `CHECK` constraints in `0000_initial.sql` for `entities.type`, `accounts.type`, `payments.type`, and `cc_spenditures.currency`.
-- Installed `@libsql/client` for `drizzle-kit migrate` (Drizzle Kit CLI in this version does not connect through Bun's `bun:sqlite` driver).
+## Current Implementation
 
-## Verification
+- Shared DB path resolver: `src/db/sqlite-path.ts`.
+- DB initialization: `src/db/database.ts`.
+- Migration runner + legacy baseline logic: `src/db/migrate.ts`.
+- Canonical migration SQL: `src/db/migrations/0000_initial.sql`.
 
-- Dev URL resolves to project-local SQLite file: `bun -e "import config from './drizzle.config.ts'; console.log(config.dbCredentials);"`
-- Production URL follows OS-specific app-data location pattern: `NODE_ENV=production bun -e "import { getSqliteDbPath } from './src/db/sqlite-path.ts'; console.log(getSqliteDbPath());"`
-- Manual migration command works: `bun run db:migrate`
-- Constraint coverage test passes: `bun test tests/migrations.test.ts`
+## Constraint Coverage Restored
+
+`0000_initial.sql` now preserves enum-like `CHECK` constraints for:
+
+- `entities.type`
+- `accounts.type`
+- `cc_spenditures.currency`
+- `payments.type`
+
+## Verification Commands
+
+```bash
+bun -e "import config from './drizzle.config.ts'; console.log(config.dbCredentials);"
+NODE_ENV=production bun -e "import { getSqliteDbPath } from './src/db/sqlite-path.ts'; console.log(getSqliteDbPath());"
+bun run db:migrate
+bun test tests/migrations.test.ts
+```
+
+## Notes for Future Migrations
+
+- Keep schema evolution migration-first (`src/db/migrations/*.sql`).
+- Avoid raw bootstrap schema duplication outside migration files.
+- Use `createTestDb()` from `src/db/migrate.ts` in tests that rely on real schema state.
