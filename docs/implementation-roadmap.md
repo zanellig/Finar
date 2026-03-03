@@ -17,6 +17,7 @@ This roadmap covers every finding from the audit, with your requested priorities
 ## PR 1 (P0): Atomic Payment Engine + Card Settlement Fix
 
 Goal: fix correctness bugs in `payments` and remove race-prone flow.
+Status: Complete.
 
 Files to add:
 
@@ -48,6 +49,7 @@ Done when:
 ## PR 2 (P0): Currency Domain Unification
 
 Goal: stop ARS/USD mixed arithmetic.
+Status: Complete.
 
 Files to add:
 
@@ -77,6 +79,7 @@ Done when:
 ## PR 3 (P0): Route Layering Refactor Across APIs
 
 Goal: remove mixed validation/business/DB/response logic from route files.
+Status: Complete.
 
 Files to add:
 
@@ -114,12 +117,13 @@ Files to add:
 
 - `drizzle.config.ts`
 - `src/db/migrations/*`
-- `scripts/migrate.ts`
+- `src/db/migrate.ts`
 
 Files to change:
 
 - `src/db/database.ts`
 - `src/db/schema.ts`
+- `src/server.ts`
 - `package.json`
 - `README.md`
 
@@ -127,12 +131,15 @@ Scope:
 
 - Adopt Drizzle migrations as canonical schema source.
 - Remove raw `CREATE TABLE IF NOT EXISTS` duplication.
-- Add startup migration step for binary/runtime startup.
+- Add a migration runner in `src/db/migrate.ts` and call it during server bootstrap.
+- Apply migrations automatically on first app startup before `Bun.serve()` starts accepting requests.
+- Keep startup migration idempotent so repeated launches are safe for existing installations.
 
 Done when:
 
 - New install and existing DB upgrade are both reproducible.
 - Schema changes are tracked as migrations only.
+- First startup on an outdated DB applies pending migrations successfully without manual commands.
 
 ## PR 5 (P1): Query Performance + Indexes + N+1 Removal
 
@@ -310,4 +317,3 @@ Done when:
 - Backup/restore plan: PR 7
 - CI gates: PR 9
 - End-to-end type safety last: PR 10
-
