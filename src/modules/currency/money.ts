@@ -21,7 +21,14 @@ export const BASE_CURRENCY: Currency = "ARS";
  */
 export const DEFAULT_RATE_SOURCE = "contadoconliqui";
 
-/** Banker's rounding to 2 decimal places. */
+/**
+ * Decimal-safe rounding to 2 decimal places.
+ *
+ * Uses exponential-notation string conversion instead of float
+ * multiplication to avoid IEEE 754 midpoint errors.
+ * e.g. Math.round(1.005 * 100) / 100 → 1.00 (wrong)
+ *      roundMoney(1.005)              → 1.01 (correct)
+ */
 export function roundMoney(n: number): number {
-  return Math.round(n * 100) / 100;
+  return Number(Math.round(parseFloat(n + "e2")) + "e-2");
 }

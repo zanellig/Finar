@@ -15,7 +15,38 @@ import { eq } from "drizzle-orm";
 import * as schema from "../src/db/schema";
 import { CurrencyConverter } from "../src/modules/currency/convert";
 import { RatesRepository } from "../src/modules/currency/rates-repository";
+import { roundMoney } from "../src/modules/currency/money";
 import { MissingRateError } from "../src/modules/shared/errors";
+
+// ── roundMoney decimal-safety regression tests ───────────────────
+
+describe("roundMoney — IEEE 754 decimal safety", () => {
+  it("rounds 1.005 to 1.01 (not 1.00)", () => {
+    expect(roundMoney(1.005)).toBe(1.01);
+  });
+
+  it("rounds 1.255 to 1.26 (not 1.25)", () => {
+    expect(roundMoney(1.255)).toBe(1.26);
+  });
+
+  it("rounds 2.345 to 2.35 (not 2.34)", () => {
+    expect(roundMoney(2.345)).toBe(2.35);
+  });
+
+  it("rounds negative half-cent values correctly", () => {
+    expect(roundMoney(-1.005)).toBe(-1);
+  });
+
+  it("preserves exact 2-decimal values", () => {
+    expect(roundMoney(1.01)).toBe(1.01);
+    expect(roundMoney(99.99)).toBe(99.99);
+    expect(roundMoney(0)).toBe(0);
+  });
+
+  it("rounds large values correctly", () => {
+    expect(roundMoney(123456.785)).toBe(123456.79);
+  });
+});
 
 // ── Helpers ──────────────────────────────────────────────────────
 
