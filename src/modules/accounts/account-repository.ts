@@ -6,6 +6,7 @@
 import { eq } from "drizzle-orm";
 import type { BunSQLiteDatabase } from "drizzle-orm/bun-sqlite";
 import { accounts, entities } from "../../db/schema";
+import type { AccountValues } from "./account-types";
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type Orm = BunSQLiteDatabase<any>;
@@ -70,14 +71,11 @@ export class AccountRepository {
       .get();
   }
 
-  create(values: Record<string, unknown>) {
-    this.db
-      .insert(accounts)
-      .values(values as any)
-      .run();
+  create(values: AccountValues) {
+    this.db.insert(accounts).values(values).run();
   }
 
-  update(id: string, values: Record<string, unknown>) {
+  update(id: string, values: Partial<AccountValues>) {
     this.db.update(accounts).set(values).where(eq(accounts.id, id)).run();
   }
 

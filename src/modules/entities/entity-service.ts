@@ -35,17 +35,12 @@ export class EntityService {
   }
 
   updateEntity(id: string, input: UpdateEntityInput) {
-    // Verify existence
     const existing = this.repo.findById(id);
     if (!existing) {
       throw new NotFoundError("Entity not found");
     }
 
-    const data: Record<string, unknown> = {};
-    if (input.name !== undefined) data.name = input.name;
-    if (input.type !== undefined) data.type = input.type;
-
-    return this.repo.update(id, data);
+    return this.repo.update(id, input);
   }
 
   deleteEntity(id: string) {

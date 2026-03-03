@@ -1,16 +1,12 @@
 /**
- * Types for the entity service, decoupled from HTTP.
+ * Types for the entity service, inferred from validators.
  */
 
-export interface CreateEntityInput {
-  name: string;
-  type: "bank" | "wallet" | "asset_manager";
-}
+import { z } from "zod/v4";
+import { insertEntitySchema, updateEntitySchema } from "../../db/validation";
 
-export interface UpdateEntityInput {
-  name?: string;
-  type?: "bank" | "wallet" | "asset_manager";
-}
+export type CreateEntityInput = z.infer<typeof insertEntitySchema>;
+export type UpdateEntityInput = z.infer<typeof updateEntitySchema>;
 
 export interface EntityRecord {
   id: string;

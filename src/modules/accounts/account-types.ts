@@ -1,41 +1,16 @@
 /**
- * Types for the account service, decoupled from HTTP.
+ * Types for the account service, inferred from validators and schema.
  */
 
-export interface CreateAccountInput {
-  entity_id: string;
-  name: string;
-  type: "savings" | "checking" | "interest";
-  balance: number;
-  currency: "ARS" | "USD";
-  daily_extraction_limit?: number | null;
-  monthly_maintenance_cost: number;
-  is_salary_account: boolean;
-  overdraft_limit: number;
-  tna_rate: number;
-}
+import { z } from "zod/v4";
+import { createInsertSchema } from "drizzle-zod";
+import { insertAccountSchema, updateAccountSchema } from "../../db/validation";
+import { accounts } from "../../db/schema";
 
-export interface UpdateAccountInput {
-  name?: string;
-  balance?: number;
-  daily_extraction_limit?: number | null;
-  monthly_maintenance_cost?: number;
-  is_salary_account?: boolean;
-  overdraft_limit?: number;
-  tna_rate?: number;
-}
+/** Validated input from API (snake_case). */
+export type CreateAccountInput = z.infer<typeof insertAccountSchema>;
+export type UpdateAccountInput = z.infer<typeof updateAccountSchema>;
 
-export interface AccountRecord {
-  id: string;
-  entity_id: string;
-  name: string;
-  type: string;
-  balance: number;
-  currency: string;
-  daily_extraction_limit: number | null;
-  monthly_maintenance_cost: number | null;
-  is_salary_account: boolean;
-  overdraft_limit: number | null;
-  tna_rate: number | null;
-  created_at: string;
-}
+/** Drizzle insert schema (camelCase) — used by the repository layer. */
+export const accountValuesSchema = createInsertSchema(accounts);
+export type AccountValues = z.infer<typeof accountValuesSchema>;

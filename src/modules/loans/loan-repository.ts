@@ -6,6 +6,7 @@
 import { eq, and } from "drizzle-orm";
 import type { BunSQLiteDatabase } from "drizzle-orm/bun-sqlite";
 import { loans, entities, payments, accounts } from "../../db/schema";
+import type { LoanValues } from "./loan-types";
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type Orm = BunSQLiteDatabase<any>;
@@ -67,11 +68,8 @@ export class LoanRepository {
       .get();
   }
 
-  create(values: Record<string, unknown>) {
-    this.db
-      .insert(loans)
-      .values(values as any)
-      .run();
+  create(values: LoanValues) {
+    this.db.insert(loans).values(values).run();
   }
 
   remove(id: string) {

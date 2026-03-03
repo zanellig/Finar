@@ -4,14 +4,18 @@
 
 import type { BunSQLiteDatabase } from "drizzle-orm/bun-sqlite";
 import { AccountRepository } from "./account-repository";
-import type { CreateAccountInput, UpdateAccountInput } from "./account-types";
+import type {
+  CreateAccountInput,
+  UpdateAccountInput,
+  AccountValues,
+} from "./account-types";
 import { NotFoundError, ValidationError } from "../shared/errors";
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type Orm = BunSQLiteDatabase<any>;
 
 /** Map snake_case service input to Drizzle camelCase columns */
-function toAccountValues(data: CreateAccountInput) {
+function toAccountValues(data: CreateAccountInput): Omit<AccountValues, "id"> {
   return {
     entityId: data.entity_id,
     name: data.name,
@@ -26,8 +30,8 @@ function toAccountValues(data: CreateAccountInput) {
   };
 }
 
-function toUpdateValues(data: UpdateAccountInput) {
-  const values: Record<string, unknown> = {};
+function toUpdateValues(data: UpdateAccountInput): Partial<AccountValues> {
+  const values: Partial<AccountValues> = {};
   if (data.name !== undefined) values.name = data.name;
   if (data.balance !== undefined) values.balance = data.balance;
   if (data.daily_extraction_limit !== undefined)

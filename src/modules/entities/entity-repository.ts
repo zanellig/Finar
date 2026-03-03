@@ -6,6 +6,7 @@
 import { eq } from "drizzle-orm";
 import type { BunSQLiteDatabase } from "drizzle-orm/bun-sqlite";
 import { entities } from "../../db/schema";
+import type { CreateEntityInput, UpdateEntityInput } from "./entity-types";
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type Orm = BunSQLiteDatabase<any>;
@@ -36,16 +37,12 @@ export class EntityRepository {
       .get();
   }
 
-  create(data: {
-    id: string;
-    name: string;
-    type: "bank" | "wallet" | "asset_manager";
-  }) {
+  create(data: { id: string } & CreateEntityInput) {
     this.db.insert(entities).values(data).run();
     return this.findById(data.id);
   }
 
-  update(id: string, data: Record<string, unknown>) {
+  update(id: string, data: UpdateEntityInput) {
     this.db.update(entities).set(data).where(eq(entities.id, id)).run();
     return this.findById(id);
   }

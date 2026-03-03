@@ -1,41 +1,22 @@
 /**
- * Types for the credit-card service, decoupled from HTTP.
+ * Types for the credit-card service, inferred from validators and schema.
  */
 
-export interface CreateCreditCardInput {
-  entity_id: string;
-  name: string;
-  spend_limit: number;
-}
+import { z } from "zod/v4";
+import { createInsertSchema } from "drizzle-zod";
+import {
+  insertCreditCardSchema,
+  updateCreditCardSchema,
+} from "../../db/validation";
+import { creditCards, ccSpenditures } from "../../db/schema";
 
-export interface UpdateCreditCardInput {
-  name?: string;
-  spend_limit?: number;
-}
+/** Validated input from API (snake_case). */
+export type CreateCreditCardInput = z.infer<typeof insertCreditCardSchema>;
+export type UpdateCreditCardInput = z.infer<typeof updateCreditCardSchema>;
 
-export interface CreateSpenditure1xInput {
-  description: string;
-  currency: "ARS" | "USD";
-  installments: 1;
-  amount: number;
-}
+/** Drizzle insert schemas (camelCase) — used by the repository layer. */
+export const creditCardValuesSchema = createInsertSchema(creditCards);
+export type CreditCardValues = z.infer<typeof creditCardValuesSchema>;
 
-export interface CreateSpenditureInstallmentInput {
-  description: string;
-  currency: "ARS";
-  installments: number;
-  monthly_amount?: number;
-  total_amount?: number;
-}
-
-export interface CardWithLimits {
-  id: string;
-  entity_id: string;
-  name: string;
-  spend_limit: number;
-  created_at: string;
-  entity_name: string;
-  entity_type: string;
-  total_spent: number;
-  available_limit: number;
-}
+export const ccSpenditureValuesSchema = createInsertSchema(ccSpenditures);
+export type CcSpenditureValues = z.infer<typeof ccSpenditureValuesSchema>;

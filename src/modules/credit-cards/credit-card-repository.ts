@@ -6,6 +6,7 @@
 import { eq, and } from "drizzle-orm";
 import type { BunSQLiteDatabase } from "drizzle-orm/bun-sqlite";
 import { creditCards, ccSpenditures, entities } from "../../db/schema";
+import type { CreditCardValues, CcSpenditureValues } from "./credit-card-types";
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type Orm = BunSQLiteDatabase<any>;
@@ -84,14 +85,11 @@ export class CreditCardRepository {
       .get();
   }
 
-  create(values: Record<string, unknown>) {
-    this.db
-      .insert(creditCards)
-      .values(values as any)
-      .run();
+  create(values: CreditCardValues) {
+    this.db.insert(creditCards).values(values).run();
   }
 
-  update(id: string, values: Record<string, unknown>) {
+  update(id: string, values: Partial<CreditCardValues>) {
     this.db.update(creditCards).set(values).where(eq(creditCards.id, id)).run();
   }
 
@@ -126,11 +124,8 @@ export class CreditCardRepository {
       .all();
   }
 
-  createSpenditure(values: Record<string, unknown>) {
-    this.db
-      .insert(ccSpenditures)
-      .values(values as any)
-      .run();
+  createSpenditure(values: CcSpenditureValues) {
+    this.db.insert(ccSpenditures).values(values).run();
   }
 
   findSpenditureById(id: string) {

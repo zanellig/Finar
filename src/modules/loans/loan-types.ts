@@ -1,29 +1,20 @@
 /**
- * Types for the loan service, decoupled from HTTP.
+ * Types for the loan service, inferred from validators and schema.
  */
 
-export interface CreateLoanInput {
-  entity_id: string;
-  name: string;
-  capital: number;
-  installments: number;
-  cftea: number;
-}
+import { z } from "zod/v4";
+import { createInsertSchema } from "drizzle-zod";
+import { insertLoanSchema } from "../../db/validation";
+import { loans } from "../../db/schema";
+
+/** Validated input from API (snake_case). */
+export type CreateLoanInput = z.infer<typeof insertLoanSchema>;
+
+/** Drizzle insert schema (camelCase) — used by the repository layer. */
+export const loanValuesSchema = createInsertSchema(loans);
+export type LoanValues = z.infer<typeof loanValuesSchema>;
 
 export interface LoanCalculation {
   totalOwed: number;
   monthlyPayment: number;
-}
-
-export interface LoanRecord {
-  id: string;
-  entity_id: string;
-  name: string;
-  capital: number;
-  installments: number;
-  cftea: number;
-  total_owed: number;
-  monthly_payment: number;
-  remaining_installments: number;
-  created_at: string;
 }
