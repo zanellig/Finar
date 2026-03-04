@@ -15,7 +15,9 @@ import {
   InsufficientFundsError,
   InvalidPaymentError,
   ConflictError,
+  CurrencyMismatchError,
 } from "../shared/errors";
+import { roundMoney } from "../currency/money";
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type Orm = BunSQLiteDatabase<any>;
@@ -62,7 +64,7 @@ export class PaymentService {
       if (input.type === "loan") {
         this.processLoanPayment(input, paymentId);
       } else {
-        this.processCreditCardPayment(input, paymentId);
+        this.processCreditCardPayment(input, paymentId, account.currency);
       }
     });
 
@@ -83,8 +85,8 @@ export class PaymentService {
     }
 
     // Verify payment amount matches the loan's monthly payment
-    const expectedAmount = Math.round(loan.monthlyPayment * 100) / 100;
-    const actualAmount = Math.round(input.amount * 100) / 100;
+    const expectedAmount = roundMoney(loan.monthlyPayment);
+    const actualAmount = roundMoney(input.amount);
 
     if (actualAmount !== expectedAmount) {
       throw new InvalidPaymentError(
@@ -104,7 +106,11 @@ export class PaymentService {
     this.repo.decrementLoanInstallment(input.targetId);
   }
 
-  private processCreditCardPayment(input: MakePaymentInput, paymentId: string) {
+  private processCreditCardPayment(
+    input: MakePaymentInput,
+    paymentId: string,
+    accountCurrency: string,
+  ) {
     const card = this.repo.getCreditCardById(input.targetId);
     if (!card) {
       throw new NotFoundError("Credit card not found");
@@ -118,13 +124,23 @@ export class PaymentService {
     for (const spend of spenditures) {
       if (remaining <= 0) break;
 
+      // ── Currency guard ─────────────────────────────────────────
+      if (spend.currency !== accountCurrency) {
+        throw new CurrencyMismatchError(
+          `Cannot settle ${spend.currency} spenditure from ${accountCurrency} account. ` +
+            `Use a ${spend.currency} account or convert funds first.`,
+        );
+      }
+
       // Each installment costs `monthlyAmount`; calculate outstanding debt
-      const outstandingDebt = spend.remainingInstallments * spend.monthlyAmount;
+      const outstandingDebt = roundMoney(
+        spend.remainingInstallments * spend.monthlyAmount,
+      );
 
       if (remaining >= outstandingDebt) {
         // Fully pay off this spenditure
         this.repo.updateSpenditure(spend.id, 0, true);
-        remaining = Math.round((remaining - outstandingDebt) * 100) / 100;
+        remaining = roundMoney(remaining - outstandingDebt);
       } else {
         // Partially pay — reduce as many installments as the amount covers
         const installmentsPaid = Math.floor(remaining / spend.monthlyAmount);
@@ -132,10 +148,9 @@ export class PaymentService {
           const newRemaining = spend.remainingInstallments - installmentsPaid;
           this.repo.updateSpenditure(spend.id, newRemaining, newRemaining <= 0);
         }
-        remaining =
-          Math.round(
-            (remaining - installmentsPaid * spend.monthlyAmount) * 100,
-          ) / 100;
+        remaining = roundMoney(
+          remaining - installmentsPaid * spend.monthlyAmount,
+        );
       }
     }
 

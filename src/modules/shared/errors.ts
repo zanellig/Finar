@@ -25,6 +25,9 @@ export class ConflictError extends DomainError {}
 /** 400 — input validation failure */
 export class ValidationError extends DomainError {}
 
+/** 400 — payment and debt currencies do not match */
+export class CurrencyMismatchError extends DomainError {}
+
 /** 503 — required exchange rate is missing; aggregation cannot proceed */
 export class MissingRateError extends DomainError {}
 
@@ -33,6 +36,9 @@ export class MissingRateError extends DomainError {}
  * Falls back to 400 for unknown errors.
  */
 export function mapDomainErrorToResponse(error: unknown): Response {
+  if (error instanceof CurrencyMismatchError) {
+    return Response.json({ error: error.message }, { status: 400 });
+  }
   if (error instanceof MissingRateError) {
     return Response.json({ error: error.message }, { status: 503 });
   }

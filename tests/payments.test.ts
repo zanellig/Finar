@@ -17,7 +17,9 @@ import {
   InvalidPaymentError,
   ConflictError,
   NotFoundError,
+  CurrencyMismatchError,
 } from "../src/modules/shared/errors";
+import { roundMoney } from "../src/modules/currency/money";
 
 // ── Helpers ──────────────────────────────────────────────────────
 
@@ -37,6 +39,7 @@ function seedAccount(
     type?: string;
     overdraftLimit?: number;
     entityId?: string;
+    currency?: string;
   } = {},
 ) {
   const {
@@ -45,10 +48,11 @@ function seedAccount(
     type = "savings",
     overdraftLimit = 0,
     entityId = "entity-1",
+    currency = "ARS",
   } = opts;
   raw.run(
-    `INSERT INTO accounts (id, entity_id, name, type, balance, overdraft_limit)
-     VALUES ('${id}', '${entityId}', 'Test Account', '${type}', ${balance}, ${overdraftLimit})`,
+    `INSERT INTO accounts (id, entity_id, name, type, balance, overdraft_limit, currency)
+     VALUES ('${id}', '${entityId}', 'Test Account', '${type}', ${balance}, ${overdraftLimit}, '${currency}')`,
   );
 }
 
@@ -94,6 +98,7 @@ function seedSpenditure(
     remainingInstallments?: number;
     installments?: number;
     createdAt?: string;
+    currency?: string;
   } = {},
 ) {
   const {
@@ -104,10 +109,11 @@ function seedSpenditure(
     remainingInstallments = 3,
     installments = 3,
     createdAt = "2026-01-01 00:00:00",
+    currency = "ARS",
   } = opts;
   raw.run(
-    `INSERT INTO cc_spenditures (id, credit_card_id, description, amount, monthly_amount, total_amount, remaining_installments, installments, created_at)
-     VALUES ('${id}', '${cardId}', 'Test Spend', ${monthlyAmount}, ${monthlyAmount}, ${totalAmount}, ${remainingInstallments}, ${installments}, '${createdAt}')`,
+    `INSERT INTO cc_spenditures (id, credit_card_id, description, amount, monthly_amount, total_amount, remaining_installments, installments, created_at, currency)
+     VALUES ('${id}', '${cardId}', 'Test Spend', ${monthlyAmount}, ${monthlyAmount}, ${totalAmount}, ${remainingInstallments}, ${installments}, '${createdAt}', '${currency}')`,
   );
 }
 
@@ -404,5 +410,168 @@ describe("PaymentService — Balance guards", () => {
         description: "",
       }),
     ).toThrow(NotFoundError);
+  });
+});
+
+describe("PaymentService — Currency-aware settlement", () => {
+  let raw: Database;
+  let orm: ReturnType<typeof drizzle>;
+  let service: PaymentService;
+
+  beforeEach(() => {
+    const db = createTestDb();
+    raw = db.raw;
+    orm = db.orm;
+    service = new PaymentService(raw, orm);
+    seedEntity(raw);
+    seedCreditCard(raw);
+  });
+
+  it("rejects ARS payment against USD spenditure", () => {
+    seedAccount(raw, { balance: 100000, currency: "ARS" });
+    seedSpenditure(raw, {
+      id: "spend-usd",
+      monthlyAmount: 100,
+      totalAmount: 300,
+      remainingInstallments: 3,
+      installments: 3,
+      currency: "USD",
+    });
+
+    expect(() =>
+      service.makePayment({
+        type: "cc",
+        targetId: "cc-1",
+        accountId: "acc-1",
+        amount: 300,
+        description: "cross-currency attempt",
+      }),
+    ).toThrow(CurrencyMismatchError);
+
+    // State unchanged
+    expect(getAccountBalance(orm, "acc-1")).toBe(100000);
+    const spend = getSpenditure(orm, "spend-usd");
+    expect(spend?.remainingInstallments).toBe(3);
+    expect(spend?.isPaidOff).toBe(false);
+  });
+
+  it("rejects USD payment against ARS spenditure", () => {
+    seedAccount(raw, { balance: 50000, currency: "USD" });
+    seedSpenditure(raw, {
+      id: "spend-ars",
+      monthlyAmount: 5000,
+      totalAmount: 15000,
+      remainingInstallments: 3,
+      installments: 3,
+      currency: "ARS",
+    });
+
+    expect(() =>
+      service.makePayment({
+        type: "cc",
+        targetId: "cc-1",
+        accountId: "acc-1",
+        amount: 15000,
+        description: "cross-currency attempt",
+      }),
+    ).toThrow(CurrencyMismatchError);
+
+    expect(getAccountBalance(orm, "acc-1")).toBe(50000);
+  });
+
+  it("allows same-currency settlement (USD/USD)", () => {
+    seedAccount(raw, { balance: 10000, currency: "USD" });
+    seedSpenditure(raw, {
+      id: "spend-usd",
+      monthlyAmount: 500,
+      totalAmount: 1500,
+      remainingInstallments: 3,
+      installments: 3,
+      currency: "USD",
+    });
+
+    service.makePayment({
+      type: "cc",
+      targetId: "cc-1",
+      accountId: "acc-1",
+      amount: 1500,
+      description: "USD settlement",
+    });
+
+    const spend = getSpenditure(orm, "spend-usd");
+    expect(spend?.remainingInstallments).toBe(0);
+    expect(spend?.isPaidOff).toBe(true);
+    expect(getAccountBalance(orm, "acc-1")).toBe(8500);
+  });
+
+  it("uses deterministic rounding on partial payoff", () => {
+    seedAccount(raw, { balance: 100000, currency: "ARS" });
+    // monthlyAmount = 33.33, 3 installments => total = 99.99
+    seedSpenditure(raw, {
+      id: "spend-round",
+      monthlyAmount: 33.33,
+      totalAmount: 99.99,
+      remainingInstallments: 3,
+      installments: 3,
+      currency: "ARS",
+    });
+
+    // Pay 70 — covers 2 installments (2 × 33.33 = 66.66), leftover = roundMoney(70 - 66.66) = 3.34
+    service.makePayment({
+      type: "cc",
+      targetId: "cc-1",
+      accountId: "acc-1",
+      amount: 70,
+      description: "partial with rounding",
+    });
+
+    const spend = getSpenditure(orm, "spend-round");
+    expect(spend?.remainingInstallments).toBe(1); // 3 - 2 = 1
+    expect(spend?.isPaidOff).toBe(false);
+    // Verify the remainder computation matches roundMoney exactly
+    expect(roundMoney(70 - 2 * 33.33)).toBe(3.34);
+  });
+
+  it("settles matching-currency spenditures then rejects at currency mismatch", () => {
+    seedAccount(raw, { balance: 100000, currency: "ARS" });
+
+    // Older ARS spenditure — should settle
+    seedSpenditure(raw, {
+      id: "spend-ars",
+      monthlyAmount: 1000,
+      totalAmount: 2000,
+      remainingInstallments: 2,
+      installments: 2,
+      currency: "ARS",
+      createdAt: "2026-01-01 00:00:00",
+    });
+
+    // Newer USD spenditure — should trigger mismatch
+    seedSpenditure(raw, {
+      id: "spend-usd",
+      monthlyAmount: 100,
+      totalAmount: 200,
+      remainingInstallments: 2,
+      installments: 2,
+      currency: "USD",
+      createdAt: "2026-02-01 00:00:00",
+    });
+
+    // Pay 3000 — enough to settle ARS spend (2000) and overflow into USD spend
+    expect(() =>
+      service.makePayment({
+        type: "cc",
+        targetId: "cc-1",
+        accountId: "acc-1",
+        amount: 3000,
+        description: "mixed currencies",
+      }),
+    ).toThrow(CurrencyMismatchError);
+
+    // Transaction rolled back: ARS spenditure untouched, balance unchanged
+    const arsSpend = getSpenditure(orm, "spend-ars");
+    expect(arsSpend?.remainingInstallments).toBe(2);
+    expect(arsSpend?.isPaidOff).toBe(false);
+    expect(getAccountBalance(orm, "acc-1")).toBe(100000);
   });
 });

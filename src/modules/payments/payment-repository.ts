@@ -68,6 +68,7 @@ export class PaymentRepository {
         totalAmount: ccSpenditures.totalAmount,
         remainingInstallments: ccSpenditures.remainingInstallments,
         installments: ccSpenditures.installments,
+        currency: ccSpenditures.currency,
       })
       .from(ccSpenditures)
       .where(
