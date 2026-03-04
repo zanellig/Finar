@@ -5,9 +5,14 @@ import { getLoansRoutes } from "./api/loans";
 import { getCreditCardsRoutes } from "./api/credit-cards";
 import { getAccountsRoutes } from "./api/accounts";
 import { getPaymentsRoutes } from "./api/payments";
-import { getRatesRoutes, startRatesFetcher } from "./api/rates";
+import {
+  getRatesRoutes,
+  startRatesFetcher,
+  stopRatesFetcher,
+} from "./api/rates";
 import { getDashboardRoutes } from "./api/dashboard";
-import { getDbPath } from "./db/database";
+import { getDbPath, closeDb } from "./db/database";
+import { registerShutdownHooks } from "./lifecycle";
 
 // --compile implies --production, which replaces NODE_ENV at bundle time
 const isDev = process.env.NODE_ENV !== "production";
@@ -43,6 +48,9 @@ const server = Bun.serve({
 
 console.log(`🏦 Finance Tracker running at ${server.url}`);
 console.log(`📂 Database: ${getDbPath()}`);
+
+// Graceful shutdown: stop intervals → close DB → stop server
+registerShutdownHooks(server, [stopRatesFetcher, closeDb]);
 
 // Auto-open dashboard in default browser (production only)
 if (!isDev) {
