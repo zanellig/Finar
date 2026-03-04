@@ -5,6 +5,7 @@ async function request<T>(path: string, options?: RequestInit): Promise<T> {
     headers: { "Content-Type": "application/json" },
     ...options,
   });
+  if (response.status === 204) return undefined as T;
   const data = await response.json();
   if (!response.ok) {
     throw new Error(
@@ -68,6 +69,15 @@ export const api = {
     request<any>(`/credit-cards/${cardId}/spenditures`, {
       method: "POST",
       body: JSON.stringify(data),
+    }),
+  updateSpenditure: (cardId: string, spendId: string, data: any) =>
+    request<any>(`/credit-cards/${cardId}/spenditures/${spendId}`, {
+      method: "PUT",
+      body: JSON.stringify(data),
+    }),
+  deleteSpenditure: (cardId: string, spendId: string) =>
+    request<void>(`/credit-cards/${cardId}/spenditures/${spendId}`, {
+      method: "DELETE",
     }),
 
   // Payments

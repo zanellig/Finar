@@ -8,6 +8,29 @@ import {
   EmptyState,
 } from "../components/shared";
 
+/** Compute days remaining until a YYYY-MM-DD due date. */
+function daysUntilDue(dueDate: string): number {
+  const due = new Date(dueDate + "T00:00:00");
+  const now = new Date();
+  now.setHours(0, 0, 0, 0);
+  return Math.ceil((due.getTime() - now.getTime()) / 86_400_000);
+}
+
+/** Urgency badge for due date. */
+function DueBadge({ dueDate }: { dueDate: string }) {
+  const days = daysUntilDue(dueDate);
+  const cls =
+    days < 0 ? "badge-danger" : days <= 7 ? "badge-warning" : "badge-success";
+  const label =
+    days < 0 ? `${Math.abs(days)}d vencido` : days === 0 ? "hoy" : `${days}d`;
+  return <span className={`badge ${cls}`}>{label}</span>;
+}
+
+/** Today in YYYY-MM-DD for default due_date. */
+function todayISO() {
+  return new Date().toISOString().slice(0, 10);
+}
+
 export function CreditCards() {
   const [cards, setCards] = useState<any[]>([]);
   const [entities, setEntities] = useState<any[]>([]);
@@ -15,8 +38,10 @@ export function CreditCards() {
   const [showCardModal, setShowCardModal] = useState(false);
   const [showSpendModal, setShowSpendModal] = useState(false);
   const [showDetailModal, setShowDetailModal] = useState(false);
+  const [showEditModal, setShowEditModal] = useState(false);
   const [selectedCard, setSelectedCard] = useState<any>(null);
   const [cardDetail, setCardDetail] = useState<any>(null);
+  const [editingSpenditure, setEditingSpenditure] = useState<any>(null);
   const [cardForm, setCardForm] = useState({
     entity_id: "",
     name: "",
@@ -29,7 +54,15 @@ export function CreditCards() {
     amount: "",
     monthly_amount: "",
     total_amount: "",
+    due_date: todayISO(),
     input_mode: "amount" as "amount" | "monthly" | "total",
+  });
+  const [editForm, setEditForm] = useState({
+    description: "",
+    due_date: "",
+    amount: "",
+    currency: "ARS",
+    installments: "1",
   });
   const [submitting, setSubmitting] = useState(false);
   const { addToast, ToastContainer } = useToast();
@@ -71,6 +104,7 @@ export function CreditCards() {
       amount: "",
       monthly_amount: "",
       total_amount: "",
+      due_date: todayISO(),
       input_mode: "amount",
     });
     setShowSpendModal(true);
@@ -83,6 +117,18 @@ export function CreditCards() {
     } catch (err: any) {
       addToast(err.message, "error");
     }
+  }
+
+  function openEdit(spend: any) {
+    setEditingSpenditure(spend);
+    setEditForm({
+      description: spend.description,
+      due_date: spend.due_date || todayISO(),
+      amount: String(spend.total_amount),
+      currency: spend.currency,
+      installments: String(spend.installments),
+    });
+    setShowEditModal(true);
   }
 
   async function handleCreateCard(e: React.FormEvent) {
@@ -133,6 +179,7 @@ export function CreditCards() {
       description: spendForm.description,
       currency: spendForm.currency,
       installments: inst,
+      due_date: spendForm.due_date,
     };
     if (inst === 1) {
       payload.amount = parseFloat(spendForm.amount);
@@ -150,6 +197,55 @@ export function CreditCards() {
       addToast(err.message, "error");
     } finally {
       setSubmitting(false);
+    }
+  }
+
+  async function handleEditSpend(e: React.FormEvent) {
+    e.preventDefault();
+    if (!editingSpenditure || !cardDetail) return;
+    setSubmitting(true);
+    const payload: any = {
+      description: editForm.description,
+      due_date: editForm.due_date,
+    };
+    // Only include financial fields if they changed
+    const isPartiallyPaid =
+      editingSpenditure.remaining_installments < editingSpenditure.installments;
+    if (!isPartiallyPaid) {
+      const newAmount = parseFloat(editForm.amount);
+      if (
+        newAmount !== editingSpenditure.total_amount ||
+        editForm.currency !== editingSpenditure.currency
+      ) {
+        payload.amount = newAmount;
+        payload.currency = editForm.currency;
+        payload.installments = parseInt(editForm.installments);
+      }
+    }
+    try {
+      await api.updateSpenditure(cardDetail.id, editingSpenditure.id, payload);
+      addToast("Gasto actualizado");
+      setShowEditModal(false);
+      // Refresh detail
+      setCardDetail(await api.getCreditCard(cardDetail.id));
+      loadData();
+    } catch (err: any) {
+      addToast(err.message, "error");
+    } finally {
+      setSubmitting(false);
+    }
+  }
+
+  async function handleDeleteSpend(spend: any) {
+    if (!cardDetail) return;
+    if (!confirm("¿Eliminar este gasto?")) return;
+    try {
+      await api.deleteSpenditure(cardDetail.id, spend.id);
+      addToast("Gasto eliminado");
+      setCardDetail(await api.getCreditCard(cardDetail.id));
+      loadData();
+    } catch (err: any) {
+      addToast(err.message, "error");
     }
   }
 
@@ -277,6 +373,21 @@ export function CreditCards() {
                       {formatCurrency(card.available_limit)}
                     </span>
                   </div>
+                  {card.available_limit_usd_estimate != null && (
+                    <div
+                      className="font-mono"
+                      style={{
+                        fontSize: "10px",
+                        color: "var(--white-30)",
+                        textAlign: "right",
+                        marginTop: -8,
+                        marginBottom: 8,
+                      }}
+                    >
+                      ≈{" "}
+                      {formatCurrency(card.available_limit_usd_estimate, "USD")}
+                    </div>
+                  )}
                   <div className="progress-bar mb-4">
                     <div
                       className="progress-fill"
@@ -290,9 +401,30 @@ export function CreditCards() {
                     className="flex justify-between font-mono"
                     style={{ fontSize: "10px", color: "var(--white-30)" }}
                   >
-                    <span>consumido {formatCurrency(card.total_spent)}</span>
+                    <span>
+                      consumido {formatCurrency(card.total_spent)}
+                      {card.total_spent_usd > 0 && (
+                        <span style={{ marginLeft: 4 }}>
+                          ({formatCurrency(card.total_spent_ars)} +{" "}
+                          {formatCurrency(card.total_spent_usd, "USD")})
+                        </span>
+                      )}
+                    </span>
                     <span>límite {formatCurrency(card.spend_limit)}</span>
                   </div>
+                  {card.spend_limit_usd_estimate != null && (
+                    <div
+                      className="font-mono"
+                      style={{
+                        fontSize: "10px",
+                        color: "var(--white-30)",
+                        textAlign: "right",
+                        marginTop: 2,
+                      }}
+                    >
+                      ≈ {formatCurrency(card.spend_limit_usd_estimate, "USD")}
+                    </div>
+                  )}
                 </div>
                 <div className="flex gap-2 mt-6">
                   <button
@@ -476,6 +608,19 @@ export function CreditCards() {
             </div>
           </div>
 
+          <div className="form-group">
+            <label className="form-label">Vencimiento</label>
+            <input
+              className="form-input"
+              type="date"
+              value={spendForm.due_date}
+              onChange={(e) =>
+                setSpendForm({ ...spendForm, due_date: e.target.value })
+              }
+              required
+            />
+          </div>
+
           {!isInstallment ? (
             <div className="form-group">
               <label className="form-label">Monto</label>
@@ -596,9 +741,20 @@ export function CreditCards() {
               >
                 Límite
               </span>
-              <span className="font-mono" style={{ fontWeight: 700 }}>
-                {formatCurrency(cardDetail.spend_limit)}
-              </span>
+              <div className="text-right">
+                <span className="font-mono" style={{ fontWeight: 700 }}>
+                  {formatCurrency(cardDetail.spend_limit)}
+                </span>
+                {cardDetail.spend_limit_usd_estimate != null && (
+                  <div
+                    className="font-mono"
+                    style={{ fontSize: "10px", color: "var(--white-30)" }}
+                  >
+                    ≈{" "}
+                    {formatCurrency(cardDetail.spend_limit_usd_estimate, "USD")}
+                  </div>
+                )}
+              </div>
             </div>
             <div className="flex justify-between mb-4">
               <span
@@ -609,12 +765,23 @@ export function CreditCards() {
               >
                 Consumido
               </span>
-              <span
-                className="font-mono"
-                style={{ fontWeight: 700, color: "var(--red)" }}
-              >
-                {formatCurrency(cardDetail.total_spent)}
-              </span>
+              <div className="text-right">
+                <span
+                  className="font-mono"
+                  style={{ fontWeight: 700, color: "var(--red)" }}
+                >
+                  {formatCurrency(cardDetail.total_spent)}
+                </span>
+                {cardDetail.total_spent_usd > 0 && (
+                  <div
+                    className="font-mono"
+                    style={{ fontSize: "10px", color: "var(--white-30)" }}
+                  >
+                    {formatCurrency(cardDetail.total_spent_ars)} +{" "}
+                    {formatCurrency(cardDetail.total_spent_usd, "USD")}
+                  </div>
+                )}
+              </div>
             </div>
             <div className="flex justify-between mb-6">
               <span
@@ -625,12 +792,26 @@ export function CreditCards() {
               >
                 Disponible
               </span>
-              <span
-                className="font-mono"
-                style={{ fontWeight: 700, color: "var(--green)" }}
-              >
-                {formatCurrency(cardDetail.available_limit)}
-              </span>
+              <div className="text-right">
+                <span
+                  className="font-mono"
+                  style={{ fontWeight: 700, color: "var(--green)" }}
+                >
+                  {formatCurrency(cardDetail.available_limit)}
+                </span>
+                {cardDetail.available_limit_usd_estimate != null && (
+                  <div
+                    className="font-mono"
+                    style={{ fontSize: "10px", color: "var(--white-30)" }}
+                  >
+                    ≈{" "}
+                    {formatCurrency(
+                      cardDetail.available_limit_usd_estimate,
+                      "USD",
+                    )}
+                  </div>
+                )}
+              </div>
             </div>
             <div
               className="font-mono"
@@ -661,70 +842,229 @@ export function CreditCards() {
                   gap: "var(--space-2)",
                 }}
               >
-                {cardDetail.spenditures.map((s: any) => (
-                  <div
-                    key={s.id}
-                    className="list-item"
-                    style={{ padding: "var(--space-2)" }}
-                  >
-                    <div>
-                      <div
-                        style={{
-                          fontWeight: 600,
-                          fontSize: "var(--font-size-sm)",
-                        }}
-                      >
-                        {s.description}
-                      </div>
-                      <div
-                        className="font-mono"
-                        style={{ fontSize: "10px", color: "var(--white-30)" }}
-                      >
-                        {s.installments > 1
-                          ? `${s.remaining_installments}/${s.installments}`
-                          : "1x"}
-                        {s.currency === "USD" && " · USD"} ·{" "}
-                        {new Date(s.created_at).toLocaleDateString("es-AR")}
-                      </div>
-                    </div>
-                    <div className="text-right font-mono">
-                      {s.installments > 1 ? (
-                        <>
-                          <div
-                            style={{
-                              fontWeight: 600,
-                              fontSize: "var(--font-size-sm)",
-                            }}
-                          >
-                            {formatCurrency(s.monthly_amount, s.currency)}/m
-                          </div>
-                          <div
-                            style={{
-                              fontSize: "10px",
-                              color: "var(--white-30)",
-                            }}
-                          >
-                            total {formatCurrency(s.total_amount, s.currency)}
-                          </div>
-                        </>
-                      ) : (
+                {cardDetail.spenditures.map((s: any) => {
+                  const isPartiallyPaid =
+                    s.remaining_installments < s.installments;
+                  return (
+                    <div
+                      key={s.id}
+                      className="list-item"
+                      style={{
+                        padding: "var(--space-2)",
+                        alignItems: "flex-start",
+                      }}
+                    >
+                      <div style={{ flex: 1, minWidth: 0 }}>
                         <div
                           style={{
                             fontWeight: 600,
                             fontSize: "var(--font-size-sm)",
                           }}
                         >
-                          {formatCurrency(s.total_amount, s.currency)}
+                          {s.description}
                         </div>
-                      )}
+                        <div
+                          className="font-mono"
+                          style={{
+                            fontSize: "10px",
+                            color: "var(--white-30)",
+                            display: "flex",
+                            alignItems: "center",
+                            gap: 6,
+                            flexWrap: "wrap",
+                            marginTop: 2,
+                          }}
+                        >
+                          <span>
+                            {s.installments > 1
+                              ? `${s.remaining_installments}/${s.installments}`
+                              : "1x"}
+                            {s.currency === "USD" && " · USD"}
+                          </span>
+                          {s.due_date && <DueBadge dueDate={s.due_date} />}
+                          {s.is_paid_off && (
+                            <span className="badge badge-success">pagado</span>
+                          )}
+                          {isPartiallyPaid && !s.is_paid_off && (
+                            <span className="badge badge-warning">parcial</span>
+                          )}
+                        </div>
+                      </div>
+                      <div
+                        style={{
+                          display: "flex",
+                          alignItems: "center",
+                          gap: 8,
+                        }}
+                      >
+                        <div className="text-right font-mono">
+                          {s.installments > 1 ? (
+                            <>
+                              <div
+                                style={{
+                                  fontWeight: 600,
+                                  fontSize: "var(--font-size-sm)",
+                                }}
+                              >
+                                {formatCurrency(s.monthly_amount, s.currency)}/m
+                              </div>
+                              <div
+                                style={{
+                                  fontSize: "10px",
+                                  color: "var(--white-30)",
+                                }}
+                              >
+                                total{" "}
+                                {formatCurrency(s.total_amount, s.currency)}
+                              </div>
+                            </>
+                          ) : (
+                            <div
+                              style={{
+                                fontWeight: 600,
+                                fontSize: "var(--font-size-sm)",
+                              }}
+                            >
+                              {formatCurrency(s.total_amount, s.currency)}
+                            </div>
+                          )}
+                        </div>
+                        <div style={{ display: "flex", gap: 2 }}>
+                          <button
+                            className="btn btn-ghost btn-sm"
+                            onClick={() => openEdit(s)}
+                            title="Editar"
+                            style={{ fontSize: "var(--font-size-xs)" }}
+                          >
+                            ✎
+                          </button>
+                          <button
+                            className="btn btn-ghost btn-sm"
+                            onClick={() => handleDeleteSpend(s)}
+                            title="Eliminar"
+                            style={{ fontSize: "var(--font-size-xs)" }}
+                          >
+                            ×
+                          </button>
+                        </div>
+                      </div>
                     </div>
-                  </div>
-                ))}
+                  );
+                })}
               </div>
             )}
           </>
         )}
       </Modal>
+
+      {/* Edit Spend Modal */}
+      <Modal
+        isOpen={showEditModal}
+        onClose={() => setShowEditModal(false)}
+        title="Editar gasto"
+        footer={
+          <>
+            <button
+              className="btn btn-secondary"
+              onClick={() => setShowEditModal(false)}
+            >
+              Cancelar
+            </button>
+            <button
+              className="btn btn-primary"
+              onClick={handleEditSpend}
+              disabled={submitting}
+            >
+              {submitting ? "..." : "Guardar"}
+            </button>
+          </>
+        }
+      >
+        {editingSpenditure && (
+          <form onSubmit={handleEditSpend}>
+            <div className="form-group">
+              <label className="form-label">Descripción</label>
+              <input
+                className="form-input"
+                type="text"
+                value={editForm.description}
+                onChange={(e) =>
+                  setEditForm({ ...editForm, description: e.target.value })
+                }
+                required
+              />
+            </div>
+            <div className="form-group">
+              <label className="form-label">Vencimiento</label>
+              <input
+                className="form-input"
+                type="date"
+                value={editForm.due_date}
+                onChange={(e) =>
+                  setEditForm({ ...editForm, due_date: e.target.value })
+                }
+                required
+              />
+            </div>
+            {(() => {
+              const isPartiallyPaid =
+                editingSpenditure.remaining_installments <
+                editingSpenditure.installments;
+              return isPartiallyPaid ? (
+                <div
+                  style={{
+                    padding: "var(--space-3)",
+                    border: "1px solid var(--yellow-15)",
+                    borderRadius: "var(--radius-md)",
+                    fontSize: "var(--font-size-xs)",
+                    color: "var(--yellow)",
+                    fontFamily: "var(--font-mono)",
+                  }}
+                >
+                  Los campos financieros no se pueden modificar en gastos con
+                  cuotas liquidadas.
+                </div>
+              ) : (
+                <>
+                  <div className="form-row">
+                    <div className="form-group">
+                      <label className="form-label">Moneda</label>
+                      <select
+                        className="form-select"
+                        value={editForm.currency}
+                        onChange={(e) =>
+                          setEditForm({
+                            ...editForm,
+                            currency: e.target.value,
+                          })
+                        }
+                      >
+                        <option value="ARS">ARS</option>
+                        <option value="USD">USD</option>
+                      </select>
+                    </div>
+                    <div className="form-group">
+                      <label className="form-label">Monto total</label>
+                      <input
+                        className="form-input"
+                        type="number"
+                        min="0.01"
+                        step="0.01"
+                        value={editForm.amount}
+                        onChange={(e) =>
+                          setEditForm({ ...editForm, amount: e.target.value })
+                        }
+                        required
+                      />
+                    </div>
+                  </div>
+                </>
+              );
+            })()}
+          </form>
+        )}
+      </Modal>
+
       <ToastContainer />
     </div>
   );

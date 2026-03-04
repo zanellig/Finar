@@ -489,6 +489,15 @@ export function Dashboard() {
                               }}
                             >
                               / {formatCurrency(card.spend_limit)}
+                              {card.spend_limit_usd_estimate != null && (
+                                <span style={{ marginLeft: 4 }}>
+                                  ≈{" "}
+                                  {formatCurrency(
+                                    card.spend_limit_usd_estimate,
+                                    "USD",
+                                  )}
+                                </span>
+                              )}
                             </div>
                           </div>
                         </div>
@@ -501,6 +510,24 @@ export function Dashboard() {
                             }}
                           />
                         </div>
+                        {card.total_spent > 0 && (
+                          <div
+                            className="font-mono"
+                            style={{
+                              fontSize: "10px",
+                              color: "var(--white-30)",
+                              marginTop: 4,
+                            }}
+                          >
+                            consumido {formatCurrency(card.total_spent_ars)}
+                            {card.total_spent_usd > 0 && (
+                              <span>
+                                {" "}
+                                + {formatCurrency(card.total_spent_usd, "USD")}
+                              </span>
+                            )}
+                          </div>
+                        )}
                       </div>
                     );
                   })}
