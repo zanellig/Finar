@@ -46,15 +46,10 @@ export function parseSpenditure(
 
   if (installments <= 1) {
     // ── 1× purchase ──────────────────────────────────────────────
-    insertCcSpenditure1xSchema.parse(normalized);
+    const parsed1x = insertCcSpenditure1xSchema.parse(normalized);
 
-    const amount = Number(body.amount);
-    if (!Number.isFinite(amount) || amount <= 0) {
-      throw new ValidationError("Amount must be a positive number");
-    }
-
-    totalAmount = amount;
-    monthlyAmount = amount;
+    totalAmount = parsed1x.amount;
+    monthlyAmount = parsed1x.amount;
     parsedInstallments = 1;
   } else {
     // ── Installment purchase ─────────────────────────────────────
