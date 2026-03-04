@@ -1,7 +1,7 @@
 {
   "version": "6",
   "dialect": "sqlite",
-  "id": "a2b3c4d5-e6f7-4890-abcd-ef1234567890",
+  "id": "5c899673-4027-4d90-ba64-9e9eb49b1878",
   "prevId": "f1e55bd8-4bb1-452d-9170-4cca9e80ddff",
   "tables": {
     "accounts": {
@@ -105,8 +105,12 @@
           "name": "accounts_entity_id_entities_id_fk",
           "tableFrom": "accounts",
           "tableTo": "entities",
-          "columnsFrom": ["entity_id"],
-          "columnsTo": ["id"],
+          "columnsFrom": [
+            "entity_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
           "onDelete": "cascade",
           "onUpdate": "no action"
         }
@@ -206,7 +210,10 @@
       "indexes": {
         "idx_cc_spenditures_card_unpaid": {
           "name": "idx_cc_spenditures_card_unpaid",
-          "columns": ["credit_card_id", "is_paid_off"],
+          "columns": [
+            "credit_card_id",
+            "is_paid_off"
+          ],
           "isUnique": false
         }
       },
@@ -215,8 +222,12 @@
           "name": "cc_spenditures_credit_card_id_credit_cards_id_fk",
           "tableFrom": "cc_spenditures",
           "tableTo": "credit_cards",
-          "columnsFrom": ["credit_card_id"],
-          "columnsTo": ["id"],
+          "columnsFrom": [
+            "credit_card_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
           "onDelete": "cascade",
           "onUpdate": "no action"
         }
@@ -272,8 +283,12 @@
           "name": "credit_cards_entity_id_entities_id_fk",
           "tableFrom": "credit_cards",
           "tableTo": "entities",
-          "columnsFrom": ["entity_id"],
-          "columnsTo": ["id"],
+          "columnsFrom": [
+            "entity_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
           "onDelete": "cascade",
           "onUpdate": "no action"
         }
@@ -457,8 +472,12 @@
           "name": "loans_entity_id_entities_id_fk",
           "tableFrom": "loans",
           "tableTo": "entities",
-          "columnsFrom": ["entity_id"],
-          "columnsTo": ["id"],
+          "columnsFrom": [
+            "entity_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
           "onDelete": "cascade",
           "onUpdate": "no action"
         }
@@ -528,8 +547,12 @@
           "name": "payments_account_id_accounts_id_fk",
           "tableFrom": "payments",
           "tableTo": "accounts",
-          "columnsFrom": ["account_id"],
-          "columnsTo": ["id"],
+          "columnsFrom": [
+            "account_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
           "onDelete": "cascade",
           "onUpdate": "no action"
         }

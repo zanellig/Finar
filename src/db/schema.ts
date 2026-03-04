@@ -1,4 +1,10 @@
-import { sqliteTable, text, real, integer } from "drizzle-orm/sqlite-core";
+import {
+  sqliteTable,
+  text,
+  real,
+  integer,
+  index,
+} from "drizzle-orm/sqlite-core";
 import { sql } from "drizzle-orm";
 
 // ---- Entities ----
@@ -72,27 +78,38 @@ export const creditCards = sqliteTable("credit_cards", {
 
 // ---- CC Spenditures ----
 
-export const ccSpenditures = sqliteTable("cc_spenditures", {
-  id: text("id").primaryKey(),
-  creditCardId: text("credit_card_id")
-    .notNull()
-    .references(() => creditCards.id, { onDelete: "cascade" }),
-  description: text("description").notNull(),
-  amount: real("amount").notNull(),
-  currency: text("currency", { enum: ["ARS", "USD"] })
-    .notNull()
-    .default("ARS"),
-  installments: integer("installments").notNull().default(1),
-  monthlyAmount: real("monthly_amount").notNull().default(0),
-  totalAmount: real("total_amount").notNull().default(0),
-  remainingInstallments: integer("remaining_installments").notNull().default(1),
-  isPaidOff: integer("is_paid_off", { mode: "boolean" })
-    .notNull()
-    .default(false),
-  createdAt: text("created_at")
-    .notNull()
-    .default(sql`(datetime('now'))`),
-});
+export const ccSpenditures = sqliteTable(
+  "cc_spenditures",
+  {
+    id: text("id").primaryKey(),
+    creditCardId: text("credit_card_id")
+      .notNull()
+      .references(() => creditCards.id, { onDelete: "cascade" }),
+    description: text("description").notNull(),
+    amount: real("amount").notNull(),
+    currency: text("currency", { enum: ["ARS", "USD"] })
+      .notNull()
+      .default("ARS"),
+    installments: integer("installments").notNull().default(1),
+    monthlyAmount: real("monthly_amount").notNull().default(0),
+    totalAmount: real("total_amount").notNull().default(0),
+    remainingInstallments: integer("remaining_installments")
+      .notNull()
+      .default(1),
+    isPaidOff: integer("is_paid_off", { mode: "boolean" })
+      .notNull()
+      .default(false),
+    createdAt: text("created_at")
+      .notNull()
+      .default(sql`(datetime('now'))`),
+  },
+  (table) => [
+    index("idx_cc_spenditures_card_unpaid").on(
+      table.creditCardId,
+      table.isPaidOff,
+    ),
+  ],
+);
 
 // ---- Payments ----
 
