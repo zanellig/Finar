@@ -150,10 +150,13 @@ export class PaymentService {
         );
       }
 
-      // Each installment costs `monthlyAmount`; calculate outstanding debt
-      const outstandingDebt = roundMoney(
-        spend.remainingInstallments * spend.monthlyAmount,
-      );
+      // Use totalAmount as the authoritative debt figure to avoid
+      // rounding drift from remainingInstallments × monthlyAmount.
+      // Already-paid portion = (original - remaining) installments
+      // worth of monthlyAmount, so outstanding = total - paid.
+      const paidInstallments = spend.installments - spend.remainingInstallments;
+      const paidSoFar = roundMoney(paidInstallments * spend.monthlyAmount);
+      const outstandingDebt = roundMoney(spend.totalAmount - paidSoFar);
 
       if (remaining >= outstandingDebt) {
         // Fully pay off this spenditure

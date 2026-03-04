@@ -112,7 +112,7 @@ describe("parseSpenditure — installment purchases", () => {
     expect(result.totalAmount).toBe(3000); // 500 × 6
   });
 
-  it("applies deterministic rounding", () => {
+  it("applies deterministic rounding and preserves totalAmount", () => {
     const result = parseSpenditure(
       baseInstallment({
         installments: 3,
@@ -123,6 +123,9 @@ describe("parseSpenditure — installment purchases", () => {
 
     // 100 / 3 = 33.333... → rounds to 33.33
     expect(result.monthlyAmount).toBe(33.33);
+    // totalAmount must stay at the user's exact figure (100),
+    // NOT recomputed as 33.33 × 3 = 99.99 — that would cause drift.
+    expect(result.totalAmount).toBe(100);
   });
 
   it("floors fractional installments to integer", () => {

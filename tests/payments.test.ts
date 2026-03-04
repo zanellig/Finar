@@ -616,6 +616,36 @@ describe("PaymentService — Currency-aware settlement", () => {
     expect(arsSpend?.isPaidOff).toBe(false);
     expect(getAccountBalance(orm, "acc-1")).toBe(100000);
   });
+
+  it("settles indivisible total without rounding drift (100 / 3)", () => {
+    // monthlyAmount = 33.33, but 33.33 × 3 = 99.99 !== 100.
+    // Settlement must collect exactly 100.00 total, not 99.99.
+    seedAccount(raw, { balance: 100000, currency: "ARS" });
+    seedSpenditure(raw, {
+      id: "spend-drift",
+      monthlyAmount: 33.33,
+      totalAmount: 100,
+      remainingInstallments: 3,
+      installments: 3,
+      currency: "ARS",
+    });
+
+    // Pay exactly the true debt (100), which should fully pay off
+    service.makePayment({
+      type: "cc",
+      targetId: "cc-1",
+      accountId: "acc-1",
+      amount: 100,
+      description: "full payoff of indivisible total",
+    });
+
+    const spend = getSpenditure(orm, "spend-drift");
+    expect(spend?.remainingInstallments).toBe(0);
+    expect(spend?.isPaidOff).toBe(true);
+
+    // Balance should drop by exactly 100
+    expect(getAccountBalance(orm, "acc-1")).toBe(99900);
+  });
 });
 
 describe("PaymentService — listPayments (enriched target names)", () => {
