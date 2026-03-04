@@ -133,6 +133,7 @@ export class CreditCardService {
       totalAmount: parsed.totalAmount,
       remainingInstallments: parsed.installments,
       isPaidOff: false,
+      dueDate: parsed.dueDate,
     });
 
     return this.repo.findSpenditureById(id);

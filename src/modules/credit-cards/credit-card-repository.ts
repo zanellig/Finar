@@ -30,6 +30,7 @@ const spendSelect = {
   total_amount: ccSpenditures.totalAmount,
   remaining_installments: ccSpenditures.remainingInstallments,
   is_paid_off: ccSpenditures.isPaidOff,
+  due_date: ccSpenditures.dueDate,
   created_at: ccSpenditures.createdAt,
 };
 

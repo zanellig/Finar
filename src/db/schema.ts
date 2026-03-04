@@ -99,6 +99,7 @@ export const ccSpenditures = sqliteTable(
     isPaidOff: integer("is_paid_off", { mode: "boolean" })
       .notNull()
       .default(false),
+    dueDate: text("due_date").notNull(),
     createdAt: text("created_at")
       .notNull()
       .default(sql`(datetime('now'))`),

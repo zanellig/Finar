@@ -45,7 +45,7 @@ describe("runMigrations", () => {
     const rows = raw
       .query(`SELECT hash, created_at FROM __drizzle_migrations`)
       .all();
-    expect(rows).toHaveLength(1);
+    expect(rows).toHaveLength(3);
 
     raw.close(false);
   });
@@ -55,7 +55,9 @@ describe("runMigrations", () => {
     raw.run("PRAGMA foreign_keys = ON;");
 
     runSqlBatch(raw, await loadInitialMigrationSql());
-    raw.run("INSERT INTO entities (id, name, type) VALUES ('e1', 'Entity', 'bank')");
+    raw.run(
+      "INSERT INTO entities (id, name, type) VALUES ('e1', 'Entity', 'bank')",
+    );
     raw.run(
       "INSERT INTO accounts (id, entity_id, name, type, balance) VALUES ('a1', 'e1', 'Account', 'savings', 0)",
     );

@@ -20,9 +20,14 @@ export const selectCcSpenditureSchema = createSelectSchema(ccSpenditures);
 export const selectPaymentSchema = createSelectSchema(payments);
 export const selectExchangeRateSchema = createSelectSchema(exchangeRates);
 
-// ---- Shared enums ----
+// ---- Shared enums & patterns ----
 
 export const currencyEnum = z.enum(["ARS", "USD"]);
+
+/** YYYY-MM-DD date string, validated by regex. */
+export const dueDateSchema = z
+  .string()
+  .regex(/^\d{4}-\d{2}-\d{2}$/, "due_date must be in YYYY-MM-DD format");
 
 // ---- Insert schemas (request validation) ----
 // Accept snake_case from frontend, transform to camelCase for Drizzle
@@ -111,6 +116,7 @@ export const insertCcSpenditure1xSchema = z.object({
     .number()
     .positive("Amount must be positive")
     .max(999_999_999),
+  due_date: dueDateSchema,
 });
 
 export const insertCcSpendInstallmentSchema = z
@@ -120,11 +126,44 @@ export const insertCcSpendInstallmentSchema = z
     installments: z.coerce.number().int().min(2).max(120),
     monthly_amount: z.coerce.number().positive().max(999_999_999).optional(),
     total_amount: z.coerce.number().positive().max(999_999_999).optional(),
+    due_date: dueDateSchema,
   })
   .refine(
     (d) => d.monthly_amount != null || d.total_amount != null,
     "Either monthly_amount or total_amount is required for installment payments",
   );
+
+// ---- Spenditure update schemas ----
+
+/** Metadata-only edits — always allowed, even on settled spenditures. */
+export const updateSpenditureMetadataSchema = z.object({
+  description: z
+    .string()
+    .trim()
+    .min(1, "Description is required")
+    .max(200)
+    .optional(),
+  due_date: dueDateSchema.optional(),
+});
+
+/** Financial edits — blocked at the service layer when partially/fully paid. */
+export const updateSpenditureFinancialSchema = z.object({
+  amount: z.coerce
+    .number()
+    .positive("Amount must be positive")
+    .max(999_999_999)
+    .optional(),
+  currency: z.enum(["ARS", "USD"]).optional(),
+  installments: z.coerce.number().int().min(1).max(120).optional(),
+  monthly_amount: z.coerce.number().positive().max(999_999_999).optional(),
+  total_amount: z.coerce.number().positive().max(999_999_999).optional(),
+});
+
+/** Path parameters for spenditure routes. */
+export const spenditureParamsSchema = z.object({
+  id: z.string().min(1, "Card id is required"),
+  spendId: z.string().min(1, "Spenditure id is required"),
+});
 
 export const insertPaymentSchema = z.object({
   type: z.enum(["cc", "loan"]),
@@ -146,6 +185,14 @@ export type CreditCard = z.infer<typeof selectCreditCardSchema>;
 export type CcSpenditure = z.infer<typeof selectCcSpenditureSchema>;
 export type Payment = z.infer<typeof selectPaymentSchema>;
 export type ExchangeRate = z.infer<typeof selectExchangeRateSchema>;
+
+export type UpdateSpenditureMetadataInput = z.infer<
+  typeof updateSpenditureMetadataSchema
+>;
+export type UpdateSpenditureFinancialInput = z.infer<
+  typeof updateSpenditureFinancialSchema
+>;
+export type SpenditureParams = z.infer<typeof spenditureParamsSchema>;
 
 // ---- Response helper ----
 

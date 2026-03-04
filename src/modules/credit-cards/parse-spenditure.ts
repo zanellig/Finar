@@ -18,6 +18,7 @@ export interface ParsedSpenditure {
   installments: number;
   monthlyAmount: number;
   totalAmount: number;
+  dueDate: string;
 }
 
 /**
@@ -40,6 +41,7 @@ export function parseSpenditure(
   let totalAmount: number;
   let monthlyAmount: number;
   let parsedInstallments: number;
+  let dueDate: string;
 
   // Build a normalized copy so zod sees the cleaned installments value
   const normalized = { ...body, installments };
@@ -51,6 +53,7 @@ export function parseSpenditure(
     totalAmount = parsed1x.amount;
     monthlyAmount = parsed1x.amount;
     parsedInstallments = 1;
+    dueDate = parsed1x.due_date;
   } else {
     // ── Installment purchase ─────────────────────────────────────
     const currency = typeof body.currency === "string" ? body.currency : "ARS";
@@ -61,9 +64,10 @@ export function parseSpenditure(
       );
     }
 
-    insertCcSpendInstallmentSchema.parse(normalized);
+    const parsedInst = insertCcSpendInstallmentSchema.parse(normalized);
 
     parsedInstallments = installments;
+    dueDate = parsedInst.due_date;
     const mAmount = Number(body.monthly_amount);
     const tAmount = Number(body.total_amount);
 
@@ -95,5 +99,6 @@ export function parseSpenditure(
     installments: parsedInstallments,
     monthlyAmount,
     totalAmount,
+    dueDate,
   };
 }

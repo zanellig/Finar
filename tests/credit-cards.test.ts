@@ -8,6 +8,11 @@
 import { describe, it, expect } from "bun:test";
 import { parseSpenditure } from "../src/modules/credit-cards/parse-spenditure";
 import { ValidationError } from "../src/modules/shared/errors";
+import {
+  updateSpenditureMetadataSchema,
+  updateSpenditureFinancialSchema,
+  spenditureParamsSchema,
+} from "../src/db/validation";
 
 // ── Helpers ──────────────────────────────────────────────────────
 
@@ -16,6 +21,7 @@ function base1x(overrides: Record<string, unknown> = {}) {
     description: "Coffee",
     currency: "ARS",
     amount: 1500,
+    due_date: "2026-01-15",
     ...overrides,
   };
 }
@@ -26,6 +32,7 @@ function baseInstallment(overrides: Record<string, unknown> = {}) {
     currency: "ARS",
     installments: 6,
     monthly_amount: 5000,
+    due_date: "2026-06-10",
     ...overrides,
   };
 }
@@ -72,7 +79,7 @@ describe("parseSpenditure — 1× purchases", () => {
   });
 
   it("defaults currency to ARS when missing", () => {
-    const body = { description: "Coffee", amount: 100 };
+    const body = { description: "Coffee", amount: 100, due_date: "2026-01-01" };
     const result = parseSpenditure(body);
     expect(result.currency).toBe("ARS");
   });
@@ -210,6 +217,116 @@ describe("parseSpenditure — validation rejections", () => {
   });
 
   it("rejects missing description for 1× purchase", () => {
-    expect(() => parseSpenditure({ amount: 100, description: "" })).toThrow();
+    expect(() =>
+      parseSpenditure({ amount: 100, description: "", due_date: "2026-01-01" }),
+    ).toThrow();
+  });
+});
+
+// ── Due date validation ─────────────────────────────────────────
+
+describe("parseSpenditure — due date validation", () => {
+  it("includes dueDate in parsed result", () => {
+    const result = parseSpenditure(base1x({ due_date: "2026-03-15" }));
+    expect(result.dueDate).toBe("2026-03-15");
+  });
+
+  it("rejects missing due_date", () => {
+    const { due_date: _, ...body } = base1x();
+    expect(() => parseSpenditure(body as Record<string, unknown>)).toThrow();
+  });
+
+  it("rejects invalid date format (slash separator)", () => {
+    expect(() => parseSpenditure(base1x({ due_date: "2026/01/15" }))).toThrow(
+      "due_date must be in YYYY-MM-DD format",
+    );
+  });
+
+  it("rejects named month format", () => {
+    expect(() => parseSpenditure(base1x({ due_date: "Jan 15" }))).toThrow(
+      "due_date must be in YYYY-MM-DD format",
+    );
+  });
+
+  it("includes dueDate on installment purchase", () => {
+    const result = parseSpenditure(baseInstallment({ due_date: "2026-12-01" }));
+    expect(result.dueDate).toBe("2026-12-01");
+  });
+});
+
+// ── Update schemas ──────────────────────────────────────────────
+
+describe("updateSpenditureMetadataSchema", () => {
+  it("accepts partial description only", () => {
+    const result = updateSpenditureMetadataSchema.parse({
+      description: "New desc",
+    });
+    expect(result.description).toBe("New desc");
+    expect(result.due_date).toBeUndefined();
+  });
+
+  it("accepts partial due_date only", () => {
+    const result = updateSpenditureMetadataSchema.parse({
+      due_date: "2026-05-01",
+    });
+    expect(result.due_date).toBe("2026-05-01");
+  });
+
+  it("accepts empty object", () => {
+    const result = updateSpenditureMetadataSchema.parse({});
+    expect(result.description).toBeUndefined();
+    expect(result.due_date).toBeUndefined();
+  });
+
+  it("rejects invalid due_date format", () => {
+    expect(() =>
+      updateSpenditureMetadataSchema.parse({ due_date: "not-a-date" }),
+    ).toThrow();
+  });
+});
+
+describe("updateSpenditureFinancialSchema", () => {
+  it("accepts partial amount", () => {
+    const result = updateSpenditureFinancialSchema.parse({ amount: 999 });
+    expect(result.amount).toBe(999);
+  });
+
+  it("accepts partial currency", () => {
+    const result = updateSpenditureFinancialSchema.parse({ currency: "USD" });
+    expect(result.currency).toBe("USD");
+  });
+
+  it("accepts empty object", () => {
+    const result = updateSpenditureFinancialSchema.parse({});
+    expect(result.amount).toBeUndefined();
+  });
+
+  it("rejects non-positive amount", () => {
+    expect(() =>
+      updateSpenditureFinancialSchema.parse({ amount: 0 }),
+    ).toThrow();
+  });
+});
+
+describe("spenditureParamsSchema", () => {
+  it("accepts valid params", () => {
+    const result = spenditureParamsSchema.parse({
+      id: "card-1",
+      spendId: "spend-1",
+    });
+    expect(result.id).toBe("card-1");
+    expect(result.spendId).toBe("spend-1");
+  });
+
+  it("rejects empty id", () => {
+    expect(() =>
+      spenditureParamsSchema.parse({ id: "", spendId: "spend-1" }),
+    ).toThrow();
+  });
+
+  it("rejects empty spendId", () => {
+    expect(() =>
+      spenditureParamsSchema.parse({ id: "card-1", spendId: "" }),
+    ).toThrow();
   });
 });
