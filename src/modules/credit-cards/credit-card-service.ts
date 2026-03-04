@@ -16,6 +16,7 @@ import { CurrencyConverter, type ConversionOptions } from "../currency/convert";
 import { RatesRepository } from "../currency/rates-repository";
 import type { Currency } from "../currency/money";
 import { roundMoney } from "../currency/money";
+import { parseSpenditure } from "./parse-spenditure";
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type Orm = BunSQLiteDatabase<any>;
@@ -117,72 +118,20 @@ export class CreditCardService {
       throw new NotFoundError("Credit card not found");
     }
 
-    const rawInstallments = Number(body.installments);
-    const installments =
-      Number.isFinite(rawInstallments) && rawInstallments >= 1
-        ? Math.floor(rawInstallments)
-        : 1;
-
-    let totalAmount: number;
-    let monthlyAmount: number;
-    let parsedInstallments: number;
-
-    if (installments <= 1) {
-      // 1x purchase — validated by caller with insertCcSpenditure1xSchema
-      const amount = Number(body.amount);
-      if (!Number.isFinite(amount) || amount <= 0) {
-        throw new ValidationError("Amount must be a positive number");
-      }
-      totalAmount = amount;
-      monthlyAmount = amount;
-      parsedInstallments = 1;
-    } else {
-      const currency =
-        typeof body.currency === "string" ? body.currency : "ARS";
-      if (currency === "USD") {
-        throw new ValidationError(
-          "Installments are only available in ARS payments",
-        );
-      }
-
-      parsedInstallments = installments;
-      const mAmount = Number(body.monthly_amount);
-      const tAmount = Number(body.total_amount);
-
-      if (Number.isFinite(mAmount) && mAmount > 0) {
-        monthlyAmount = mAmount;
-        totalAmount =
-          Math.round(monthlyAmount * parsedInstallments * 100) / 100;
-      } else if (Number.isFinite(tAmount) && tAmount > 0) {
-        totalAmount = tAmount;
-        monthlyAmount =
-          Math.round((totalAmount / parsedInstallments) * 100) / 100;
-      } else {
-        throw new ValidationError(
-          "Either monthly_amount or total_amount is required for installment payments",
-        );
-      }
-    }
-
-    const description =
-      typeof body.description === "string" ? body.description.trim() : "";
-    const currency =
-      typeof body.currency === "string" &&
-      (body.currency === "ARS" || body.currency === "USD")
-        ? body.currency
-        : "ARS";
+    const parsed = parseSpenditure(body);
 
     const id = crypto.randomUUID();
     this.repo.createSpenditure({
       id,
       creditCardId: cardId,
-      description,
-      amount: parsedInstallments === 1 ? totalAmount : monthlyAmount,
-      currency,
-      installments: parsedInstallments,
-      monthlyAmount,
-      totalAmount,
-      remainingInstallments: parsedInstallments,
+      description: parsed.description,
+      amount:
+        parsed.installments === 1 ? parsed.totalAmount : parsed.monthlyAmount,
+      currency: parsed.currency,
+      installments: parsed.installments,
+      monthlyAmount: parsed.monthlyAmount,
+      totalAmount: parsed.totalAmount,
+      remainingInstallments: parsed.installments,
       isPaidOff: false,
     });
 

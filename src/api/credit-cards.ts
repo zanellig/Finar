@@ -7,8 +7,6 @@ import { getOrm } from "../db/database";
 import {
   insertCreditCardSchema,
   updateCreditCardSchema,
-  insertCcSpenditure1xSchema,
-  insertCcSpendInstallmentSchema,
 } from "../db/validation";
 import { CreditCardService } from "../modules/credit-cards/credit-card-service";
 import { routeParam, parseJsonBody, parseConversionOpts } from "./http/request";
@@ -111,28 +109,11 @@ export function getCreditCardsRoutes() {
               { status: 400 },
             );
 
-          // Validate with the appropriate schema based on installments
-          const rawBody = body as Record<string, unknown>;
-          const rawInstallments = Number(rawBody.installments);
-          const installments =
-            Number.isFinite(rawInstallments) && rawInstallments >= 1
-              ? Math.floor(rawInstallments)
-              : 1;
-
-          if (installments <= 1) {
-            insertCcSpenditure1xSchema.parse(body);
-          } else {
-            if (rawBody.currency === "USD") {
-              return Response.json(
-                { error: "Installments are only available in ARS payments" },
-                { status: 400 },
-              );
-            }
-            insertCcSpendInstallmentSchema.parse(body);
-          }
-
           const service = getService();
-          const spenditure = service.createSpenditure(cardId, rawBody);
+          const spenditure = service.createSpenditure(
+            cardId,
+            body as Record<string, unknown>,
+          );
           return Response.json(spenditure, { status: 201 });
         } catch (err) {
           return mapErrorToResponse(err);
