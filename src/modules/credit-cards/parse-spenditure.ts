@@ -10,6 +10,7 @@ import {
   insertCcSpendInstallmentSchema,
 } from "../../db/validation";
 import { ValidationError } from "../shared/errors";
+import { roundMoney } from "../currency/money";
 
 export interface ParsedSpenditure {
   description: string;
@@ -73,11 +74,10 @@ export function parseSpenditure(
 
     if (Number.isFinite(mAmount) && mAmount > 0) {
       monthlyAmount = mAmount;
-      totalAmount = Math.round(monthlyAmount * parsedInstallments * 100) / 100;
+      totalAmount = roundMoney(monthlyAmount * parsedInstallments);
     } else if (Number.isFinite(tAmount) && tAmount > 0) {
       totalAmount = tAmount;
-      monthlyAmount =
-        Math.round((totalAmount / parsedInstallments) * 100) / 100;
+      monthlyAmount = roundMoney(totalAmount / parsedInstallments);
     } else {
       throw new ValidationError(
         "Either monthly_amount or total_amount is required for installment payments",
