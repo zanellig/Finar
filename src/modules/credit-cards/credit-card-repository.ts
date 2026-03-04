@@ -1,12 +1,13 @@
-/**
- * Credit-card repository — pure DB access layer.
- * All queries return plain objects; no business logic here.
- */
-
-import { eq, and } from "drizzle-orm";
+import { eq, and, sql } from "drizzle-orm";
 import type { BunSQLiteDatabase } from "drizzle-orm/bun-sqlite";
 import { creditCards, ccSpenditures, entities } from "../../db/schema";
 import type { CreditCardValues, CcSpenditureValues } from "./credit-card-types";
+
+/** Per-card raw currency split for unpaid spenditures. */
+export interface CardCurrencyTotals {
+  ars: number;
+  usd: number;
+}
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type Orm = BunSQLiteDatabase<any>;
@@ -113,6 +114,66 @@ export class CreditCardRepository {
         ),
       )
       .all();
+  }
+
+  /**
+   * Aggregate unpaid spenditures grouped by card ID and currency (single query).
+   * Returns a Map keyed by card ID → { ars, usd } raw currency totals.
+   */
+  getUnpaidSpendTotalsByCurrency(): Map<string, CardCurrencyTotals> {
+    const rows = this.db
+      .select({
+        cardId: ccSpenditures.creditCardId,
+        currency: ccSpenditures.currency,
+        total: sql<number>`COALESCE(SUM(${ccSpenditures.totalAmount}), 0)`,
+      })
+      .from(ccSpenditures)
+      .where(eq(ccSpenditures.isPaidOff, false))
+      .groupBy(ccSpenditures.creditCardId, ccSpenditures.currency)
+      .all();
+
+    const map = new Map<string, CardCurrencyTotals>();
+    for (const row of rows) {
+      let entry = map.get(row.cardId);
+      if (!entry) {
+        entry = { ars: 0, usd: 0 };
+        map.set(row.cardId, entry);
+      }
+      if (row.currency === "USD") {
+        entry.usd += row.total;
+      } else {
+        entry.ars += row.total;
+      }
+    }
+    return map;
+  }
+
+  /** Single-card convenience accessor for unpaid currency totals. */
+  getCardUnpaidTotals(cardId: string): CardCurrencyTotals {
+    const rows = this.db
+      .select({
+        currency: ccSpenditures.currency,
+        total: sql<number>`COALESCE(SUM(${ccSpenditures.totalAmount}), 0)`,
+      })
+      .from(ccSpenditures)
+      .where(
+        and(
+          eq(ccSpenditures.creditCardId, cardId),
+          eq(ccSpenditures.isPaidOff, false),
+        ),
+      )
+      .groupBy(ccSpenditures.currency)
+      .all();
+
+    const result: CardCurrencyTotals = { ars: 0, usd: 0 };
+    for (const row of rows) {
+      if (row.currency === "USD") {
+        result.usd += row.total;
+      } else {
+        result.ars += row.total;
+      }
+    }
+    return result;
   }
 
   /** Fetch all spenditures for a card (for detail view). */

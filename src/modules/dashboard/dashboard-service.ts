@@ -7,6 +7,7 @@
 
 import type { BunSQLiteDatabase } from "drizzle-orm/bun-sqlite";
 import { DashboardRepository } from "./dashboard-repository";
+import { CreditCardRepository } from "../credit-cards/credit-card-repository";
 import type { DashboardData } from "./dashboard-types";
 import { CurrencyConverter, type ConversionOptions } from "../currency/convert";
 import { RatesRepository } from "../currency/rates-repository";
@@ -18,10 +19,12 @@ type Orm = BunSQLiteDatabase<any>;
 
 export class DashboardService {
   private readonly repo: DashboardRepository;
+  private readonly ccRepo: CreditCardRepository;
   private readonly converter: CurrencyConverter;
 
   constructor(orm: Orm) {
     this.repo = new DashboardRepository(orm);
+    this.ccRepo = new CreditCardRepository(orm);
     this.converter = new CurrencyConverter(new RatesRepository(orm));
   }
 
@@ -62,25 +65,38 @@ export class DashboardService {
       opts,
     );
 
-    // ── Credit cards with available limits ─────────────────
+    // ── Credit cards with available limits (canonical aggregation) ──
     const cardList = this.repo.getCards();
-    const cardSpendMap = this.repo.getCardSpendTotals();
+    const spendMap = this.ccRepo.getUnpaidSpendTotalsByCurrency();
+
+    // Pre-resolve the sell rate once so card-loop calls don't hit DB per card
+    const cachedRate = this.converter.tryGetSellRate(opts);
+    const rateOpts: ConversionOptions =
+      cachedRate != null ? { ...opts, customRate: cachedRate } : opts;
 
     const cardsWithLimits = cardList.map((card) => {
-      const spendRows = cardSpendMap.get(card.id) ?? [];
+      const totals = spendMap.get(card.id) ?? { ars: 0, usd: 0 };
 
-      const totalSpent = this.converter.sumToBase(
-        spendRows.map((s) => ({
-          amount: s.totalAmount,
-          currency: s.currency as Currency,
-        })),
-        opts,
-      );
+      const usdInArs =
+        totals.usd > 0
+          ? this.converter.toBase(
+              { amount: totals.usd, currency: "USD" },
+              rateOpts,
+            )
+          : 0;
+      const totalSpent = roundMoney(totals.ars + usdInArs);
+      const availableLimit = roundMoney(card.spend_limit - totalSpent);
 
       return {
         ...card,
-        total_spent: roundMoney(totalSpent),
-        available_limit: roundMoney(card.spend_limit - totalSpent),
+        total_spent: totalSpent,
+        total_spent_ars: roundMoney(totals.ars),
+        total_spent_usd: roundMoney(totals.usd),
+        available_limit: availableLimit,
+        spend_limit_usd_estimate:
+          cachedRate != null ? roundMoney(card.spend_limit / cachedRate) : null,
+        available_limit_usd_estimate:
+          cachedRate != null ? roundMoney(availableLimit / cachedRate) : null,
       };
     });
 

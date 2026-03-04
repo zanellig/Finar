@@ -91,37 +91,6 @@ export class DashboardRepository {
       .all();
   }
 
-  /**
-   * Aggregated unpaid spenditures grouped by card ID.
-   * Returns a Map so the service can look up per-card totals in O(1)
-   * without issuing per-card queries.
-   */
-  getCardSpendTotals() {
-    const rows = this.db
-      .select({
-        cardId: ccSpenditures.creditCardId,
-        totalAmount: ccSpenditures.totalAmount,
-        currency: ccSpenditures.currency,
-      })
-      .from(ccSpenditures)
-      .where(eq(ccSpenditures.isPaidOff, false))
-      .all();
-
-    const grouped = new Map<
-      string,
-      { totalAmount: number; currency: string }[]
-    >();
-    for (const row of rows) {
-      let bucket = grouped.get(row.cardId);
-      if (!bucket) {
-        bucket = [];
-        grouped.set(row.cardId, bucket);
-      }
-      bucket.push({ totalAmount: row.totalAmount, currency: row.currency });
-    }
-    return grouped;
-  }
-
   /** Entities with relationship counts. */
   getEntities() {
     return this.db

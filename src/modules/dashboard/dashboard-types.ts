@@ -56,7 +56,11 @@ export interface DashboardCard {
   spend_limit: number;
   entity_name: string;
   total_spent: number;
+  total_spent_ars: number;
+  total_spent_usd: number;
   available_limit: number;
+  spend_limit_usd_estimate: number | null;
+  available_limit_usd_estimate: number | null;
 }
 
 export interface DashboardPayment {

@@ -7,6 +7,7 @@
 
 import type { BunSQLiteDatabase } from "drizzle-orm/bun-sqlite";
 import { CreditCardRepository } from "./credit-card-repository";
+import type { CardCurrencyTotals } from "./credit-card-repository";
 import type {
   CreateCreditCardInput,
   UpdateCreditCardInput,
@@ -14,12 +15,21 @@ import type {
 import { NotFoundError, ValidationError } from "../shared/errors";
 import { CurrencyConverter, type ConversionOptions } from "../currency/convert";
 import { RatesRepository } from "../currency/rates-repository";
-import type { Currency } from "../currency/money";
 import { roundMoney } from "../currency/money";
 import { parseSpenditure } from "./parse-spenditure";
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type Orm = BunSQLiteDatabase<any>;
+
+/** Shape returned for card list items and card detail (base fields). */
+interface CardExposure {
+  total_spent: number;
+  total_spent_ars: number;
+  total_spent_usd: number;
+  available_limit: number;
+  spend_limit_usd_estimate: number | null;
+  available_limit_usd_estimate: number | null;
+}
 
 export class CreditCardService {
   private readonly repo: CreditCardRepository;
@@ -32,13 +42,17 @@ export class CreditCardService {
 
   listCards(opts: ConversionOptions = {}) {
     const cards = this.repo.findAll();
+    const spendMap = this.repo.getUnpaidSpendTotalsByCurrency();
+
+    // Pre-resolve the sell rate once so per-card calls don't hit DB
+    const cachedRate = this.converter.tryGetSellRate(opts);
+    const rateOpts: ConversionOptions =
+      cachedRate != null ? { ...opts, customRate: cachedRate } : opts;
+
     return cards.map((card) => {
-      const spent = this.getCardSpentConverted(card.id, opts);
-      return {
-        ...card,
-        total_spent: roundMoney(spent),
-        available_limit: roundMoney(card.spend_limit - spent),
-      };
+      const totals = spendMap.get(card.id) ?? { ars: 0, usd: 0 };
+      const exposure = this.buildExposure(card.spend_limit, totals, rateOpts);
+      return { ...card, ...exposure };
     });
   }
 
@@ -49,22 +63,13 @@ export class CreditCardService {
     }
 
     const spenditureList = this.repo.getAllSpenditures(id);
-
-    const totalSpent = this.converter.sumToBase(
-      spenditureList
-        .filter((s) => !s.is_paid_off)
-        .map((s) => ({
-          amount: s.total_amount,
-          currency: s.currency as Currency,
-        })),
-      opts,
-    );
+    const totals = this.repo.getCardUnpaidTotals(id);
+    const exposure = this.buildExposure(card.spend_limit, totals, opts);
 
     return {
       ...card,
       spenditures: spenditureList,
-      total_spent: roundMoney(totalSpent),
-      available_limit: roundMoney(card.spend_limit - totalSpent),
+      ...exposure,
     };
   }
 
@@ -85,7 +90,11 @@ export class CreditCardService {
     return {
       ...card,
       total_spent: 0,
+      total_spent_ars: 0,
+      total_spent_usd: 0,
       available_limit: input.spend_limit,
+      spend_limit_usd_estimate: this.converter.fromBase(input.spend_limit),
+      available_limit_usd_estimate: this.converter.fromBase(input.spend_limit),
     };
   }
 
@@ -120,6 +129,9 @@ export class CreditCardService {
 
     const parsed = parseSpenditure(body);
 
+    // Enforce limit before insert
+    this.enforceLimit(cardId, parsed.totalAmount, parsed.currency);
+
     const id = crypto.randomUUID();
     this.repo.createSpenditure({
       id,
@@ -139,18 +151,74 @@ export class CreditCardService {
     return this.repo.findSpenditureById(id);
   }
 
-  /** Calculate total unpaid spend on a card in ARS. */
-  private getCardSpentConverted(
+  // ── Private helpers ─────────────────────────────────────────────
+
+  /**
+   * Build the exposure fields for a card from raw currency totals.
+   * Converts USD portion to ARS for the unified total.
+   */
+  private buildExposure(
+    spendLimit: number,
+    totals: CardCurrencyTotals,
+    opts: ConversionOptions = {},
+  ): CardExposure {
+    const usdInArs =
+      totals.usd > 0
+        ? this.converter.toBase({ amount: totals.usd, currency: "USD" }, opts)
+        : 0;
+    const totalSpent = roundMoney(totals.ars + usdInArs);
+    const availableLimit = roundMoney(spendLimit - totalSpent);
+
+    return {
+      total_spent: totalSpent,
+      total_spent_ars: roundMoney(totals.ars),
+      total_spent_usd: roundMoney(totals.usd),
+      available_limit: availableLimit,
+      spend_limit_usd_estimate: this.converter.fromBase(spendLimit, opts),
+      available_limit_usd_estimate: this.converter.fromBase(
+        availableLimit,
+        opts,
+      ),
+    };
+  }
+
+  /**
+   * Enforce the ARS unified limit before persisting a spenditure.
+   * Converts the new spenditure amount to ARS if needed, then checks
+   * if projected exposure would exceed the card's spend_limit.
+   */
+  private enforceLimit(
     cardId: string,
-    opts: ConversionOptions,
-  ): number {
-    const rows = this.repo.getUnpaidSpenditures(cardId);
-    return this.converter.sumToBase(
-      rows.map((s) => ({
-        amount: s.totalAmount,
-        currency: s.currency as Currency,
-      })),
-      opts,
-    );
+    additionalAmount: number,
+    currency: "ARS" | "USD",
+  ): void {
+    const card = this.repo.findCardBasic(cardId);
+    if (!card) return;
+
+    const totals = this.repo.getCardUnpaidTotals(cardId);
+
+    // Convert current USD to ARS
+    const currentUsdInArs =
+      totals.usd > 0
+        ? this.converter.toBase({ amount: totals.usd, currency: "USD" })
+        : 0;
+    const currentExposure = totals.ars + currentUsdInArs;
+
+    // Convert additional to ARS
+    const additionalArs =
+      currency === "USD"
+        ? this.converter.toBase({ amount: additionalAmount, currency: "USD" })
+        : additionalAmount;
+
+    const projected = roundMoney(currentExposure + additionalArs);
+
+    if (projected > card.spend_limit) {
+      throw new ValidationError(
+        `Spenditure would exceed card limit. ` +
+          `Current exposure: ${roundMoney(currentExposure)} ARS, ` +
+          `additional: ${roundMoney(additionalArs)} ARS, ` +
+          `limit: ${card.spend_limit} ARS`,
+      );
+    }
   }
 }

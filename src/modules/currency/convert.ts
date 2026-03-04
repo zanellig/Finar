@@ -69,6 +69,34 @@ export class CurrencyConverter {
     return roundMoney(total);
   }
 
+  /**
+   * Convert a base-currency (ARS) amount to a foreign currency estimate.
+   *
+   * Returns `null` when no rate is available — estimates are best-effort,
+   * not critical. Used for USD limit estimates on card responses.
+   */
+  fromBase(arsAmount: number, opts: ConversionOptions = {}): number | null {
+    try {
+      const sellRate = this.resolveSellRate("USD", opts);
+      return roundMoney(arsAmount / sellRate);
+    } catch {
+      return null;
+    }
+  }
+
+  /**
+   * Pre-resolve the USD → ARS sell rate.
+   * Returns `null` when no rate is available.
+   * Useful for caching the rate in hot loops.
+   */
+  tryGetSellRate(opts: ConversionOptions = {}): number | null {
+    try {
+      return this.resolveSellRate("USD", opts);
+    } catch {
+      return null;
+    }
+  }
+
   /** Resolve the sell rate for a foreign currency → ARS. */
   private resolveSellRate(currency: Currency, opts: ConversionOptions): number {
     // Custom rate takes priority
