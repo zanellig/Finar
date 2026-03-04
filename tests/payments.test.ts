@@ -646,6 +646,58 @@ describe("PaymentService — Currency-aware settlement", () => {
     // Balance should drop by exactly 100
     expect(getAccountBalance(orm, "acc-1")).toBe(99900);
   });
+
+  it("settles indivisible total without drift (10 / 6)", () => {
+    // monthlyAmount = 1.67, but 1.67 × 6 = 10.02 !== 10
+    seedAccount(raw, { balance: 100000, currency: "ARS" });
+    seedSpenditure(raw, {
+      id: "spend-drift-10-6",
+      monthlyAmount: 1.67,
+      totalAmount: 10,
+      remainingInstallments: 6,
+      installments: 6,
+      currency: "ARS",
+    });
+
+    service.makePayment({
+      type: "cc",
+      targetId: "cc-1",
+      accountId: "acc-1",
+      amount: 10,
+      description: "full payoff 10/6",
+    });
+
+    const spend = getSpenditure(orm, "spend-drift-10-6");
+    expect(spend?.remainingInstallments).toBe(0);
+    expect(spend?.isPaidOff).toBe(true);
+    expect(getAccountBalance(orm, "acc-1")).toBe(99990);
+  });
+
+  it("settles indivisible total without drift (1000 / 7)", () => {
+    // monthlyAmount = 142.86, but 142.86 × 7 = 1000.02 !== 1000
+    seedAccount(raw, { balance: 100000, currency: "ARS" });
+    seedSpenditure(raw, {
+      id: "spend-drift-1000-7",
+      monthlyAmount: 142.86,
+      totalAmount: 1000,
+      remainingInstallments: 7,
+      installments: 7,
+      currency: "ARS",
+    });
+
+    service.makePayment({
+      type: "cc",
+      targetId: "cc-1",
+      accountId: "acc-1",
+      amount: 1000,
+      description: "full payoff 1000/7",
+    });
+
+    const spend = getSpenditure(orm, "spend-drift-1000-7");
+    expect(spend?.remainingInstallments).toBe(0);
+    expect(spend?.isPaidOff).toBe(true);
+    expect(getAccountBalance(orm, "acc-1")).toBe(99000);
+  });
 });
 
 describe("PaymentService — listPayments (enriched target names)", () => {

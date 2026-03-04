@@ -128,6 +128,48 @@ describe("parseSpenditure — installment purchases", () => {
     expect(result.totalAmount).toBe(100);
   });
 
+  it("preserves totalAmount for 10 / 6 (repeating decimal)", () => {
+    const result = parseSpenditure(
+      baseInstallment({
+        installments: 6,
+        monthly_amount: undefined,
+        total_amount: 10,
+      }),
+    );
+
+    // 10 / 6 = 1.6666... → 1.67
+    expect(result.monthlyAmount).toBe(1.67);
+    expect(result.totalAmount).toBe(10);
+  });
+
+  it("preserves totalAmount for 7 / 4", () => {
+    const result = parseSpenditure(
+      baseInstallment({
+        installments: 4,
+        monthly_amount: undefined,
+        total_amount: 7,
+      }),
+    );
+
+    // 7 / 4 = 1.75 — exact, no drift
+    expect(result.monthlyAmount).toBe(1.75);
+    expect(result.totalAmount).toBe(7);
+  });
+
+  it("preserves totalAmount for 1000 / 7 (long repeating)", () => {
+    const result = parseSpenditure(
+      baseInstallment({
+        installments: 7,
+        monthly_amount: undefined,
+        total_amount: 1000,
+      }),
+    );
+
+    // 1000 / 7 = 142.857... → 142.86
+    expect(result.monthlyAmount).toBe(142.86);
+    expect(result.totalAmount).toBe(1000);
+  });
+
   it("floors fractional installments to integer", () => {
     const result = parseSpenditure(
       baseInstallment({ installments: 6.7, monthly_amount: 100 }),
