@@ -11,10 +11,20 @@ import type { CardCurrencyTotals } from "./credit-card-repository";
 import type {
   CreateCreditCardInput,
   UpdateCreditCardInput,
+  CcSpenditureValues,
 } from "./credit-card-types";
-import { NotFoundError, ValidationError } from "../shared/errors";
+import {
+  NotFoundError,
+  ValidationError,
+  ConflictError,
+} from "../shared/errors";
+import {
+  updateSpenditureMetadataSchema,
+  updateSpenditureFinancialSchema,
+} from "../../db/validation";
 import { CurrencyConverter, type ConversionOptions } from "../currency/convert";
 import { RatesRepository } from "../currency/rates-repository";
+import type { Currency } from "../currency/money";
 import { roundMoney } from "../currency/money";
 import { parseSpenditure } from "./parse-spenditure";
 
@@ -151,6 +161,107 @@ export class CreditCardService {
     return this.repo.findSpenditureById(id);
   }
 
+  updateSpenditure(
+    cardId: string,
+    spendId: string,
+    body: Record<string, unknown>,
+  ) {
+    const existing = this.repo.findSpenditureByCardAndId(cardId, spendId);
+    if (!existing) {
+      throw new NotFoundError("Spenditure not found on this card");
+    }
+
+    // Parse metadata (always allowed)
+    const metaInput = updateSpenditureMetadataSchema.parse(body);
+
+    // Parse financial fields
+    const finInput = updateSpenditureFinancialSchema.parse(body);
+    const hasFinancialChanges =
+      finInput.amount != null ||
+      finInput.currency != null ||
+      finInput.installments != null ||
+      finInput.monthly_amount != null ||
+      finInput.total_amount != null;
+
+    // Integrity guard: block financial edits on partially/fully paid spenditures
+    const isPartiallyPaid =
+      existing.remaining_installments < existing.installments;
+    if (hasFinancialChanges && isPartiallyPaid) {
+      throw new ConflictError(
+        "Cannot modify financial fields on a spenditure with settled installments",
+      );
+    }
+
+    // Build the update values
+    const values: Partial<CcSpenditureValues> = {};
+
+    // Metadata always applied
+    if (metaInput.description != null)
+      values.description = metaInput.description;
+    if (metaInput.due_date != null) values.dueDate = metaInput.due_date;
+
+    // Financial fields
+    if (hasFinancialChanges) {
+      const newCurrency = (finInput.currency ?? existing.currency) as Currency;
+      const newInstallments = finInput.installments ?? existing.installments;
+
+      let totalAmount: number;
+      let monthlyAmount: number;
+
+      if (finInput.total_amount != null) {
+        totalAmount = finInput.total_amount;
+        monthlyAmount = roundMoney(totalAmount / newInstallments);
+      } else if (finInput.monthly_amount != null) {
+        monthlyAmount = finInput.monthly_amount;
+        totalAmount = roundMoney(monthlyAmount * newInstallments);
+      } else if (finInput.amount != null && newInstallments === 1) {
+        totalAmount = finInput.amount;
+        monthlyAmount = finInput.amount;
+      } else {
+        // Recalculate from existing with new installments
+        totalAmount = existing.total_amount;
+        monthlyAmount = roundMoney(totalAmount / newInstallments);
+      }
+
+      // Enforce limit with delta (new - old)
+      this.enforceLimitForUpdate(
+        cardId,
+        spendId,
+        totalAmount,
+        newCurrency,
+        existing.total_amount,
+        existing.currency as Currency,
+      );
+
+      values.currency = newCurrency;
+      values.installments = newInstallments;
+      values.totalAmount = totalAmount;
+      values.monthlyAmount = monthlyAmount;
+      values.remainingInstallments = newInstallments;
+      values.amount = newInstallments === 1 ? totalAmount : monthlyAmount;
+    }
+
+    this.repo.updateSpenditure(spendId, values);
+    return this.repo.findSpenditureById(spendId);
+  }
+
+  deleteSpenditure(cardId: string, spendId: string) {
+    const existing = this.repo.findSpenditureByCardAndId(cardId, spendId);
+    if (!existing) {
+      throw new NotFoundError("Spenditure not found on this card");
+    }
+
+    const isPartiallyPaid =
+      existing.remaining_installments < existing.installments;
+    if (isPartiallyPaid) {
+      throw new ConflictError(
+        "Cannot delete a spenditure with settled installments",
+      );
+    }
+
+    this.repo.deleteSpenditure(spendId);
+  }
+
   // ── Private helpers ─────────────────────────────────────────────
 
   /**
@@ -183,14 +294,14 @@ export class CreditCardService {
   }
 
   /**
-   * Enforce the ARS unified limit before persisting a spenditure.
+   * Enforce the ARS unified limit before persisting a new spenditure.
    * Converts the new spenditure amount to ARS if needed, then checks
    * if projected exposure would exceed the card's spend_limit.
    */
   private enforceLimit(
     cardId: string,
     additionalAmount: number,
-    currency: "ARS" | "USD",
+    currency: Currency,
   ): void {
     const card = this.repo.findCardBasic(cardId);
     if (!card) return;
@@ -217,6 +328,53 @@ export class CreditCardService {
         `Spenditure would exceed card limit. ` +
           `Current exposure: ${roundMoney(currentExposure)} ARS, ` +
           `additional: ${roundMoney(additionalArs)} ARS, ` +
+          `limit: ${card.spend_limit} ARS`,
+      );
+    }
+  }
+
+  /**
+   * Enforce the ARS unified limit for an update (delta-based).
+   * Subtracts the old spenditure's contribution before adding the new one.
+   */
+  private enforceLimitForUpdate(
+    cardId: string,
+    spendId: string,
+    newAmount: number,
+    newCurrency: Currency,
+    oldAmount: number,
+    oldCurrency: Currency,
+  ): void {
+    const card = this.repo.findCardBasic(cardId);
+    if (!card) return;
+
+    const totals = this.repo.getCardUnpaidTotals(cardId);
+
+    // Convert current totals to ARS
+    const currentUsdInArs =
+      totals.usd > 0
+        ? this.converter.toBase({ amount: totals.usd, currency: "USD" })
+        : 0;
+    const currentExposure = totals.ars + currentUsdInArs;
+
+    // Subtract the old contribution
+    const oldArs =
+      oldCurrency === "USD"
+        ? this.converter.toBase({ amount: oldAmount, currency: "USD" })
+        : oldAmount;
+
+    // Add the new contribution
+    const newArs =
+      newCurrency === "USD"
+        ? this.converter.toBase({ amount: newAmount, currency: "USD" })
+        : newAmount;
+
+    const projected = roundMoney(currentExposure - oldArs + newArs);
+
+    if (projected > card.spend_limit) {
+      throw new ValidationError(
+        `Spenditure update would exceed card limit. ` +
+          `Projected exposure: ${projected} ARS, ` +
           `limit: ${card.spend_limit} ARS`,
       );
     }

@@ -120,5 +120,40 @@ export function getCreditCardsRoutes() {
         }
       },
     },
+    "/api/credit-cards/:id/spenditures/:spendId": {
+      PUT: async (req: Request) => {
+        try {
+          const cardId = routeParam(req, "id");
+          const spendId = routeParam(req, "spendId");
+          const body = await parseJsonBody(req);
+          if (!body)
+            return Response.json(
+              { error: "Invalid JSON body" },
+              { status: 400 },
+            );
+
+          const service = getService();
+          const result = service.updateSpenditure(
+            cardId,
+            spendId,
+            body as Record<string, unknown>,
+          );
+          return Response.json(result);
+        } catch (err) {
+          return mapErrorToResponse(err);
+        }
+      },
+      DELETE: (req: Request) => {
+        try {
+          const cardId = routeParam(req, "id");
+          const spendId = routeParam(req, "spendId");
+          const service = getService();
+          service.deleteSpenditure(cardId, spendId);
+          return new Response(null, { status: 204 });
+        } catch (err) {
+          return mapErrorToResponse(err);
+        }
+      },
+    },
   };
 }

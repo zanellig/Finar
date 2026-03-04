@@ -197,4 +197,30 @@ export class CreditCardRepository {
       .where(eq(ccSpenditures.id, id))
       .get();
   }
+
+  /** Fetch a spenditure that belongs to the given card (ownership check). */
+  findSpenditureByCardAndId(cardId: string, spendId: string) {
+    return this.db
+      .select(spendSelect)
+      .from(ccSpenditures)
+      .where(
+        and(
+          eq(ccSpenditures.creditCardId, cardId),
+          eq(ccSpenditures.id, spendId),
+        ),
+      )
+      .get();
+  }
+
+  updateSpenditure(id: string, values: Partial<CcSpenditureValues>) {
+    this.db
+      .update(ccSpenditures)
+      .set(values)
+      .where(eq(ccSpenditures.id, id))
+      .run();
+  }
+
+  deleteSpenditure(id: string) {
+    this.db.delete(ccSpenditures).where(eq(ccSpenditures.id, id)).run();
+  }
 }
