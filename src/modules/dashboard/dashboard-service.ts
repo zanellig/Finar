@@ -64,9 +64,10 @@ export class DashboardService {
 
     // ── Credit cards with available limits ─────────────────
     const cardList = this.repo.getCards();
+    const cardSpendMap = this.repo.getCardSpendTotals();
 
     const cardsWithLimits = cardList.map((card) => {
-      const spendRows = this.repo.getCardUnpaidSpenditures(card.id);
+      const spendRows = cardSpendMap.get(card.id) ?? [];
 
       const totalSpent = this.converter.sumToBase(
         spendRows.map((s) => ({
