@@ -119,7 +119,25 @@ export class PaymentService {
     // Fetch unpaid spenditures (FIFO order) and apply payment
     const spenditures = this.repo.getUnpaidSpenditures(input.targetId);
 
+    if (spenditures.length === 0) {
+      throw new ConflictError(
+        "No outstanding debt on this card. All spenditures are already paid off.",
+      );
+    }
+
+    // ── Pre-flight: ensure at least one installment can be settled ──
+    const smallestInstallment = Math.min(
+      ...spenditures.map((s) => s.monthlyAmount),
+    );
+    if (input.amount < smallestInstallment) {
+      throw new InvalidPaymentError(
+        `Payment amount is below the minimum installment of ${smallestInstallment}. ` +
+          `Minimum payable: ${smallestInstallment}.`,
+      );
+    }
+
     let remaining = input.amount;
+    let settledAny = false;
 
     for (const spend of spenditures) {
       if (remaining <= 0) break;
@@ -141,17 +159,27 @@ export class PaymentService {
         // Fully pay off this spenditure
         this.repo.updateSpenditure(spend.id, 0, true);
         remaining = roundMoney(remaining - outstandingDebt);
+        settledAny = true;
       } else {
         // Partially pay — reduce as many installments as the amount covers
         const installmentsPaid = Math.floor(remaining / spend.monthlyAmount);
         if (installmentsPaid > 0) {
           const newRemaining = spend.remainingInstallments - installmentsPaid;
           this.repo.updateSpenditure(spend.id, newRemaining, newRemaining <= 0);
+          settledAny = true;
         }
         remaining = roundMoney(
           remaining - installmentsPaid * spend.monthlyAmount,
         );
       }
+    }
+
+    // ── Final guard: nothing settled despite spenditures existing ──
+    if (!settledAny) {
+      throw new InvalidPaymentError(
+        `Payment amount is below the minimum installment of ${smallestInstallment}. ` +
+          `Minimum payable: ${smallestInstallment}.`,
+      );
     }
 
     this.repo.deductAccountBalance(input.accountId, input.amount);

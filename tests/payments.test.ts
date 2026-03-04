@@ -323,6 +323,48 @@ describe("PaymentService — Credit card payments", () => {
     expect(spend?.isPaidOff).toBe(true);
     expect(spend?.remainingInstallments).toBe(0);
   });
+
+  it("rejects payment below the smallest installment amount", () => {
+    seedSpenditure(raw, {
+      id: "spend-min",
+      monthlyAmount: 5000,
+      totalAmount: 15000,
+      remainingInstallments: 3,
+      installments: 3,
+    });
+
+    expect(() =>
+      service.makePayment({
+        type: "cc",
+        targetId: "cc-1",
+        accountId: "acc-1",
+        amount: 4999,
+        description: "too small",
+      }),
+    ).toThrow(InvalidPaymentError);
+
+    // State unchanged — balance untouched, spenditure intact
+    expect(getAccountBalance(orm, "acc-1")).toBe(100000);
+    const spend = getSpenditure(orm, "spend-min");
+    expect(spend?.remainingInstallments).toBe(3);
+    expect(spend?.isPaidOff).toBe(false);
+  });
+
+  it("rejects payment when all spenditures are already paid off", () => {
+    // No unpaid spenditures seeded for cc-1
+
+    expect(() =>
+      service.makePayment({
+        type: "cc",
+        targetId: "cc-1",
+        accountId: "acc-1",
+        amount: 1000,
+        description: "nothing to settle",
+      }),
+    ).toThrow(ConflictError);
+
+    expect(getAccountBalance(orm, "acc-1")).toBe(100000);
+  });
 });
 
 describe("PaymentService — Balance guards", () => {
