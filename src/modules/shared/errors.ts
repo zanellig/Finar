@@ -30,36 +30,3 @@ export class CurrencyMismatchError extends DomainError {}
 
 /** 503 — required exchange rate is missing; aggregation cannot proceed */
 export class MissingRateError extends DomainError {}
-
-/**
- * Maps a domain error to an HTTP Response.
- * Falls back to 400 for unknown errors.
- */
-export function mapDomainErrorToResponse(error: unknown): Response {
-  if (error instanceof CurrencyMismatchError) {
-    return Response.json({ error: error.message }, { status: 400 });
-  }
-  if (error instanceof MissingRateError) {
-    return Response.json({ error: error.message }, { status: 503 });
-  }
-  if (error instanceof NotFoundError) {
-    return Response.json({ error: error.message }, { status: 404 });
-  }
-  if (error instanceof ConflictError) {
-    return Response.json({ error: error.message }, { status: 409 });
-  }
-  if (error instanceof InsufficientFundsError) {
-    return Response.json({ error: error.message }, { status: 400 });
-  }
-  if (error instanceof InvalidPaymentError) {
-    return Response.json({ error: error.message }, { status: 400 });
-  }
-  if (error instanceof DomainError) {
-    return Response.json({ error: error.message }, { status: 400 });
-  }
-
-  return Response.json(
-    { error: error instanceof Error ? error.message : "Unexpected error" },
-    { status: 500 },
-  );
-}

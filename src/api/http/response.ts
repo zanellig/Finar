@@ -8,6 +8,7 @@
 import { z } from "zod/v4";
 import {
   DomainError,
+  CurrencyMismatchError,
   MissingRateError,
   NotFoundError,
   ConflictError,
@@ -23,6 +24,7 @@ import {
  *   ZodError / ValidationError  → 400
  *   InvalidPaymentError         → 400
  *   InsufficientFundsError      → 400
+ *   CurrencyMismatchError       → 400
  *   NotFoundError               → 404
  *   ConflictError               → 409
  *   MissingRateError            → 503
@@ -50,6 +52,9 @@ export function mapErrorToResponse(err: unknown): Response {
     return Response.json({ error: err.message }, { status: 400 });
   }
   if (err instanceof InvalidPaymentError) {
+    return Response.json({ error: err.message }, { status: 400 });
+  }
+  if (err instanceof CurrencyMismatchError) {
     return Response.json({ error: err.message }, { status: 400 });
   }
   if (err instanceof ValidationError) {
