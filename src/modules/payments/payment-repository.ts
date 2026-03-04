@@ -162,30 +162,30 @@ export class PaymentRepository {
         created_at: payments.createdAt,
         account_name: accounts.name,
         account_currency: accounts.currency,
+        loan_name: loans.name,
+        card_name: creditCards.name,
       })
       .from(payments)
       .innerJoin(accounts, eq(payments.accountId, accounts.id))
+      .leftJoin(loans, eq(payments.targetId, loans.id))
+      .leftJoin(creditCards, eq(payments.targetId, creditCards.id))
       .orderBy(desc(payments.createdAt))
       .all();
 
-    return rows.map((p) => {
-      let targetName = "";
-      if (p.type === "loan") {
-        const loan = this.db
-          .select({ name: loans.name })
-          .from(loans)
-          .where(eq(loans.id, p.target_id))
-          .get();
-        targetName = loan?.name ?? "Unknown Loan";
-      } else {
-        const card = this.db
-          .select({ name: creditCards.name })
-          .from(creditCards)
-          .where(eq(creditCards.id, p.target_id))
-          .get();
-        targetName = card?.name ?? "Unknown Card";
-      }
-      return { ...p, target_name: targetName };
-    });
+    return rows.map((p) => ({
+      id: p.id,
+      type: p.type,
+      target_id: p.target_id,
+      account_id: p.account_id,
+      amount: p.amount,
+      description: p.description,
+      created_at: p.created_at,
+      account_name: p.account_name,
+      account_currency: p.account_currency,
+      target_name:
+        p.type === "loan"
+          ? (p.loan_name ?? "Unknown Loan")
+          : (p.card_name ?? "Unknown Card"),
+    }));
   }
 }

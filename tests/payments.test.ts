@@ -617,3 +617,196 @@ describe("PaymentService — Currency-aware settlement", () => {
     expect(getAccountBalance(orm, "acc-1")).toBe(100000);
   });
 });
+
+describe("PaymentService — listPayments (enriched target names)", () => {
+  let raw: Database;
+  let orm: ReturnType<typeof drizzle>;
+  let service: PaymentService;
+
+  beforeEach(() => {
+    const db = createTestDb();
+    raw = db.raw;
+    orm = db.orm;
+    service = new PaymentService(raw, orm);
+    seedEntity(raw);
+    seedAccount(raw, { balance: 500000 });
+  });
+
+  it("returns loan name as target_name for loan payments", () => {
+    seedLoan(raw, {
+      id: "loan-enrich",
+      monthlyPayment: 2000,
+      remainingInstallments: 6,
+    });
+
+    service.makePayment({
+      type: "loan",
+      targetId: "loan-enrich",
+      accountId: "acc-1",
+      amount: 2000,
+      description: "loan enrichment test",
+    });
+
+    const list = service.listPayments();
+    expect(list.length).toBe(1);
+    expect(list[0]!.target_name).toBe("Test Loan");
+    expect(list[0]!.type).toBe("loan");
+  });
+
+  it("returns card name as target_name for credit card payments", () => {
+    seedCreditCard(raw, { id: "cc-enrich" });
+    seedSpenditure(raw, {
+      id: "spend-enrich",
+      cardId: "cc-enrich",
+      monthlyAmount: 1000,
+      totalAmount: 3000,
+      remainingInstallments: 3,
+      installments: 3,
+    });
+
+    service.makePayment({
+      type: "cc",
+      targetId: "cc-enrich",
+      accountId: "acc-1",
+      amount: 3000,
+      description: "card enrichment test",
+    });
+
+    const list = service.listPayments();
+    expect(list.length).toBe(1);
+    expect(list[0]!.target_name).toBe("Test Card");
+    expect(list[0]!.type).toBe("cc");
+  });
+
+  it("handles mixed loan and card payments with correct target names", () => {
+    seedLoan(raw, {
+      id: "loan-mix",
+      monthlyPayment: 1500,
+      remainingInstallments: 4,
+    });
+    seedCreditCard(raw, { id: "cc-mix" });
+    seedSpenditure(raw, {
+      id: "spend-mix",
+      cardId: "cc-mix",
+      monthlyAmount: 2000,
+      totalAmount: 4000,
+      remainingInstallments: 2,
+      installments: 2,
+    });
+
+    service.makePayment({
+      type: "loan",
+      targetId: "loan-mix",
+      accountId: "acc-1",
+      amount: 1500,
+      description: "loan",
+    });
+    service.makePayment({
+      type: "cc",
+      targetId: "cc-mix",
+      accountId: "acc-1",
+      amount: 4000,
+      description: "card",
+    });
+
+    const list = service.listPayments();
+    expect(list.length).toBe(2);
+
+    const loanPayment = list.find((p) => p.type === "loan");
+    const cardPayment = list.find((p) => p.type === "cc");
+
+    expect(loanPayment?.target_name).toBe("Test Loan");
+    expect(cardPayment?.target_name).toBe("Test Card");
+  });
+
+  it("preserves response shape with all expected fields", () => {
+    seedLoan(raw, {
+      id: "loan-shape",
+      monthlyPayment: 3000,
+      remainingInstallments: 2,
+    });
+
+    service.makePayment({
+      type: "loan",
+      targetId: "loan-shape",
+      accountId: "acc-1",
+      amount: 3000,
+      description: "shape check",
+    });
+
+    const list = service.listPayments();
+    const payment = list[0];
+
+    expect(payment).toHaveProperty("id");
+    expect(payment).toHaveProperty("type");
+    expect(payment).toHaveProperty("target_id");
+    expect(payment).toHaveProperty("account_id");
+    expect(payment).toHaveProperty("amount");
+    expect(payment).toHaveProperty("description");
+    expect(payment).toHaveProperty("created_at");
+    expect(payment).toHaveProperty("account_name");
+    expect(payment).toHaveProperty("account_currency");
+    expect(payment).toHaveProperty("target_name");
+
+    // Must NOT leak intermediate join fields
+    expect(payment).not.toHaveProperty("loan_name");
+    expect(payment).not.toHaveProperty("card_name");
+  });
+
+  it("executes a bounded number of queries (no N+1 regression)", () => {
+    // Seed many payments to amplify any N+1 leak
+    seedLoan(raw, {
+      id: "loan-n1",
+      monthlyPayment: 100,
+      remainingInstallments: 20,
+    });
+    seedCreditCard(raw, { id: "cc-n1" });
+    for (let i = 0; i < 10; i++) {
+      seedSpenditure(raw, {
+        id: `spend-n1-${i}`,
+        cardId: "cc-n1",
+        monthlyAmount: 100,
+        totalAmount: 100,
+        remainingInstallments: 1,
+        installments: 1,
+        createdAt: `2026-01-${String(i + 1).padStart(2, "0")} 00:00:00`,
+      });
+    }
+
+    // Make 5 loan payments and 5 card payments (10 total)
+    for (let i = 0; i < 5; i++) {
+      service.makePayment({
+        type: "loan",
+        targetId: "loan-n1",
+        accountId: "acc-1",
+        amount: 100,
+        description: `loan-${i}`,
+      });
+    }
+    for (let i = 0; i < 5; i++) {
+      service.makePayment({
+        type: "cc",
+        targetId: "cc-n1",
+        accountId: "acc-1",
+        amount: 100,
+        description: `cc-${i}`,
+      });
+    }
+
+    // Spy on the underlying prepare method to count queries
+    let queryCount = 0;
+    const originalPrepare = raw.prepare.bind(raw);
+    raw.prepare = (...args: Parameters<typeof raw.prepare>) => {
+      queryCount++;
+      return originalPrepare(...args);
+    };
+
+    const list = service.listPayments();
+    expect(list.length).toBe(10);
+
+    // With the JOIN-based approach, listPayments should execute
+    // a constant number of queries (1), not N+1.
+    // Allow up to 3 for any ORM overhead.
+    expect(queryCount).toBeLessThanOrEqual(3);
+  });
+});
