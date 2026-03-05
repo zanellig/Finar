@@ -356,7 +356,7 @@ export function CreditCards() {
                     <span
                       className="font-mono"
                       style={{
-                        fontSize: "var(--font-size-xs)",
+                        fontSize: "var(--font-size-base)",
                         color: "var(--white-30)",
                         textTransform: "uppercase",
                         letterSpacing: "0.08em",
@@ -367,7 +367,7 @@ export function CreditCards() {
                     <span
                       className="font-mono"
                       style={{
-                        fontSize: "var(--font-size-2xl)",
+                        fontSize: "var(--font-size-lg)",
                         fontWeight: 700,
                         color:
                           card.available_limit > 0
@@ -382,7 +382,7 @@ export function CreditCards() {
                     <div
                       className="font-mono"
                       style={{
-                        fontSize: "10px",
+                        fontSize: "var(--font-size-sm)",
                         color: "var(--white-30)",
                         textAlign: "right",
                         marginTop: -8,
@@ -403,11 +403,14 @@ export function CreditCards() {
                     />
                   </div>
                   <div
-                    className="flex justify-between font-mono"
-                    style={{ fontSize: "10px", color: "var(--white-30)" }}
+                    className="flex flex-col font-mono"
+                    style={{
+                      fontSize: "10px",
+                      color: "var(--white-30)",
+                    }}
                   >
-                    <span>
-                      consumido {formatCurrency(card.total_spent)}
+                    <span className="flex justify-between">
+                      <span>Consumido {formatCurrency(card.total_spent)}</span>
                       {card.total_spent_usd > 0 && (
                         <span style={{ marginLeft: 4 }}>
                           ({formatCurrency(card.total_spent_ars)} +{" "}
@@ -415,21 +418,24 @@ export function CreditCards() {
                         </span>
                       )}
                     </span>
-                    <span>límite {formatCurrency(card.spend_limit)}</span>
+                    <span className="flex justify-between">
+                      <span>Límite {formatCurrency(card.spend_limit)}</span>
+
+                      {card.spend_limit_usd_estimate != null && (
+                        <div
+                          className="font-mono"
+                          style={{
+                            fontSize: "10px",
+                            color: "var(--white-30)",
+                            textAlign: "right",
+                          }}
+                        >
+                          ≈{" "}
+                          {formatCurrency(card.spend_limit_usd_estimate, "USD")}
+                        </div>
+                      )}
+                    </span>
                   </div>
-                  {card.spend_limit_usd_estimate != null && (
-                    <div
-                      className="font-mono"
-                      style={{
-                        fontSize: "10px",
-                        color: "var(--white-30)",
-                        textAlign: "right",
-                        marginTop: 2,
-                      }}
-                    >
-                      ≈ {formatCurrency(card.spend_limit_usd_estimate, "USD")}
-                    </div>
-                  )}
                 </div>
                 <div className="flex gap-2 mt-6">
                   <button
