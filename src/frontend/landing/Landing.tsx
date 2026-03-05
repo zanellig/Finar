@@ -9,8 +9,17 @@ import {
   faCircleDollarToSlot,
   faChartLine,
   faArrowRight,
+  faArrowDown,
+  faDownload,
+  faCircleExclamation,
 } from "@fortawesome/free-solid-svg-icons";
 import { faCreditCard } from "@fortawesome/free-regular-svg-icons";
+import {
+  faGithub,
+  faWindows,
+  faLinux,
+  faApple,
+} from "@fortawesome/free-brands-svg-icons";
 
 interface ExchangeRate {
   id: string;
@@ -79,8 +88,8 @@ function Landing() {
       {/* ---- Nav ---- */}
       <nav className="landing-nav">
         <a href="/landing" className="nav-brand">
-          <div className="nav-logo">FT</div>
-          <span className="nav-wordmark">FinTracker</span>
+          <div className="nav-logo">FA</div>
+          <span className="nav-wordmark">FinAR</span>
         </a>
         <div className="nav-links">
           <a href="#features" className="nav-link">
@@ -89,9 +98,18 @@ function Landing() {
           <a href="#rates" className="nav-link">
             Cotizaciones
           </a>
+          <a
+            href="https://github.com/cogniarg/finar"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="nav-secondary"
+          >
+            <FontAwesomeIcon icon={faGithub} style={{ marginRight: 8 }} />{" "}
+            GitHub
+          </a>
           <a href="/" className="nav-cta">
-            Abrir App{" "}
-            <FontAwesomeIcon icon={faArrowRight} style={{ marginLeft: 8 }} />
+            Descargar{" "}
+            <FontAwesomeIcon icon={faDownload} style={{ marginLeft: 4 }} />
           </a>
         </div>
       </nav>
@@ -100,24 +118,27 @@ function Landing() {
       <section className="hero">
         <div className="hero-badge">
           <span className="hero-badge-dot" />
-          <span>open source · bun + react + sqlite</span>
+          <span>
+            <FontAwesomeIcon icon={faGithub} style={{ marginRight: 4 }} /> Ya
+            somos open source!
+          </span>
         </div>
 
         <h1 className="hero-headline">
           Tus finanzas
           <br />
-          en <span className="highlight">una terminal</span>
+          en <span className="highlight">un solo lugar</span>
         </h1>
 
         <p className="hero-sub">
-          Dashboard minimalista para trackear cuentas, préstamos, tarjetas y
-          patrimonio neto. Sin ruido, sin fricción.
+          Llevá el control de tus cuentas, préstamos y tarjetas <br />
+          sin tener que saltar de una app a otra.
         </p>
 
         <div className="hero-actions">
           <a href="/" className="hero-btn-primary">
-            Abrir Dashboard{" "}
-            <FontAwesomeIcon icon={faArrowRight} style={{ marginLeft: 8 }} />
+            Descargá la app{" "}
+            <FontAwesomeIcon icon={faDownload} style={{ marginLeft: 8 }} />
           </a>
           <a href="#features" className="hero-btn-secondary">
             Ver funciones
@@ -130,7 +151,7 @@ function Landing() {
             <div className="terminal-dot" />
             <div className="terminal-dot" />
             <div className="terminal-dot" />
-            <div className="terminal-title">fintracker — dashboard</div>
+            <div className="terminal-title">finar — dashboard</div>
           </div>
           <div className="terminal-body">
             <div className="terminal-line">
@@ -223,27 +244,59 @@ function Landing() {
       {/* ---- CTA ---- */}
       <section className="cta-section">
         <h2 className="cta-title">
-          Empezá a trackear
+          Tomá el control de tus finanzas ahora
           <br />
-          tus finanzas ahora
         </h2>
         <p className="cta-sub">
-          Sin registro. Sin cloud. Todo corre en tu máquina con SQLite.
+          Sin registro. Sin cloud. Libre, gratuito y personal.
         </p>
         <a href="/" className="hero-btn-primary">
-          Abrir Dashboard{" "}
-          <FontAwesomeIcon icon={faArrowRight} style={{ marginLeft: 8 }} />
+          Descargá la app{" "}
+          <FontAwesomeIcon icon={faDownload} style={{ marginLeft: 8 }} />
         </a>
+      </section>
+
+      {/* ---- Disclaimer & Status ---- */}
+      <section className="notice-section">
+        <div className="notice-card">
+          <div className="notice-icon">
+            <FontAwesomeIcon icon={faCircleExclamation} />
+          </div>
+          <div className="notice-content">
+            <div className="notice-title">Etapa Alpha</div>
+            <div className="notice-text">
+              FinAR se encuentra actualmente en fase de pruebas (Alpha). Es
+              posible que encuentres errores o comportamientos inesperados
+              durante su uso.
+            </div>
+          </div>
+        </div>
+
+        <div className="notice-card">
+          <div className="notice-icon group">
+            <FontAwesomeIcon icon={faWindows} />
+            <FontAwesomeIcon icon={faApple} />
+            <FontAwesomeIcon icon={faLinux} />
+          </div>
+          <div className="notice-content">
+            <div className="notice-title">Disponibilidad de Plataformas</div>
+            <div className="notice-text">
+              Disponible únicamente para <strong>Windows, Linux y MacOS</strong>
+              . Las versiones para dispositivos móviles (Android/iOS) no están
+              planificadas.
+            </div>
+          </div>
+        </div>
       </section>
 
       {/* ---- Footer ---- */}
       <footer className="landing-footer">
         <div className="footer-left">
-          <div className="footer-logo">FT</div>
-          <span className="footer-text">FinTracker v1.0.0</span>
+          <div className="footer-logo">FA</div>
+          <span className="footer-text">FinAR v1.0.0</span>
         </div>
         <div className="footer-right">
-          bun + react + sqlite · {new Date().getFullYear()}
+          Cogniar &copy; {new Date().getFullYear()}
         </div>
       </footer>
     </>

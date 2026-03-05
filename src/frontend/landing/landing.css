@@ -144,6 +144,26 @@ body {
   background: var(--green-bright);
 }
 
+.nav-secondary {
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--white-70);
+  background: transparent;
+  padding: 8px 16px;
+  border-radius: 6px;
+  text-decoration: none;
+  border: 1px solid var(--white-15);
+  cursor: pointer;
+  transition: all 0.15s ease;
+  font-family: var(--font-display);
+}
+
+.nav-secondary:hover {
+  color: var(--white);
+  border-color: var(--white-30);
+  background: var(--white-06);
+}
+
 /* ---- Hero ---- */
 .hero {
   min-height: 100vh;
@@ -599,6 +619,81 @@ body {
   line-height: 1.6;
 }
 
+/* ---- Notices & Status ---- */
+.notice-section {
+  padding: 40px 48px 80px;
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 24px;
+  max-width: 1100px;
+  margin: 0 auto;
+}
+
+.notice-card {
+  display: flex;
+  gap: 20px;
+  padding: 24px;
+  border: 1px solid var(--white-06);
+  border-radius: 12px;
+  background: var(--black-2);
+  transition: border-color 0.2s ease;
+}
+
+.notice-card:hover {
+  border-color: var(--white-10);
+}
+
+.notice-icon {
+  width: 40px;
+  height: 40px;
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--white-04);
+  border-radius: 8px;
+  color: var(--white-50);
+  font-size: 18px;
+}
+
+.notice-icon.group {
+  gap: 8px;
+  width: auto;
+  padding: 0 12px;
+  color: var(--white-30);
+  font-size: 16px;
+}
+
+.notice-content {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.notice-title {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--yellow);
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+}
+
+.notice-card:last-child .notice-title {
+  color: var(--green-dim);
+}
+
+.notice-text {
+  font-size: 13px;
+  color: var(--white-50);
+  line-height: 1.6;
+}
+
+.notice-text strong {
+  color: var(--white-90);
+  font-weight: 600;
+}
+
 /* ---- Footer ---- */
 .landing-footer {
   padding: 40px 48px;
@@ -763,6 +858,10 @@ body {
   }
   .rate-card {
     min-width: calc(33.33% - 1px);
+  }
+  .notice-section {
+    grid-template-columns: 1fr;
+    padding: 20px 24px 60px;
   }
 }
 
