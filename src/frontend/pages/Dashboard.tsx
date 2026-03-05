@@ -7,6 +7,20 @@ import {
   LoadingPage,
   EmptyState,
 } from "../components/shared";
+import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
+import {
+  faArrowsRotate,
+  faTriangleExclamation,
+  faArrowRight,
+  faDollarSign,
+  faArrowDown,
+  faBars,
+  faBuildingColumns,
+  faHandHoldingDollar,
+  faPiggyBank,
+  faCreditCard,
+  faWallet,
+} from "@fortawesome/free-solid-svg-icons";
 
 interface DashboardData {
   net_worth: number;
@@ -44,7 +58,12 @@ export function Dashboard() {
 
   if (loading) return <LoadingPage />;
   if (!data)
-    return <EmptyState icon="!" text="Could not load dashboard data" />;
+    return (
+      <EmptyState
+        icon={faTriangleExclamation}
+        text="Could not load dashboard data"
+      />
+    );
 
   const blueRate = data.exchange_rates.find((r: any) => r.source === "blue");
   const hasData = data.entities.length > 0;
@@ -66,13 +85,14 @@ export function Dashboard() {
           </p>
         </div>
         <button className="btn btn-secondary btn-sm" onClick={loadData}>
-          ↻ Refresh
+          <FontAwesomeIcon icon={faArrowsRotate} style={{ marginRight: 8 }} />{" "}
+          Refresh
         </button>
       </div>
 
       {!hasData ? (
         <EmptyState
-          icon="→"
+          icon={faArrowRight}
           text="Bienvenido. Empezá creando una entidad (banco, billetera, o sociedad de bolsa) para comenzar a trackear tus finanzas."
         />
       ) : (
@@ -96,7 +116,7 @@ export function Dashboard() {
                     color: "var(--green)",
                   }}
                 >
-                  $
+                  <FontAwesomeIcon icon={faDollarSign} />
                 </div>
               </div>
               {blueRate && data.net_worth > 0 && (
@@ -124,7 +144,7 @@ export function Dashboard() {
                   className="card-icon"
                   style={{ background: "var(--red-15)", color: "var(--red)" }}
                 >
-                  ↓
+                  <FontAwesomeIcon icon={faArrowDown} />
                 </div>
               </div>
               <div
@@ -154,7 +174,7 @@ export function Dashboard() {
                     color: "var(--white-50)",
                   }}
                 >
-                  ≡
+                  <FontAwesomeIcon icon={faBars} />
                 </div>
               </div>
               <div
@@ -181,7 +201,7 @@ export function Dashboard() {
                   className="card-icon"
                   style={{ background: "var(--blue-15)", color: "var(--blue)" }}
                 >
-                  ◆
+                  <FontAwesomeIcon icon={faBuildingColumns} />
                 </div>
               </div>
               <div
@@ -235,11 +255,13 @@ export function Dashboard() {
                             color: "var(--green)",
                           }}
                         >
-                          {account.type === "savings"
-                            ? "S"
-                            : account.type === "checking"
-                              ? "C"
-                              : "R"}
+                          {account.type === "savings" ? (
+                            <FontAwesomeIcon icon={faPiggyBank} />
+                          ) : account.type === "checking" ? (
+                            <FontAwesomeIcon icon={faCreditCard} />
+                          ) : (
+                            <FontAwesomeIcon icon={faWallet} />
+                          )}
                         </div>
                         <div className="list-item-details">
                           <div className="list-item-title">{account.name}</div>
@@ -377,7 +399,7 @@ export function Dashboard() {
                             color: "var(--red)",
                           }}
                         >
-                          ▸
+                          <FontAwesomeIcon icon={faHandHoldingDollar} />
                         </div>
                         <div className="list-item-details">
                           <div className="list-item-title">{loan.name}</div>

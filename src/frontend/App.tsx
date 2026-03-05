@@ -9,6 +9,18 @@ import { CreditCards } from "./pages/CreditCards";
 import { Accounts } from "./pages/Accounts";
 import { Payments } from "./pages/Payments";
 
+import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
+import {
+  faBuildingColumns,
+  faPiggyBank,
+  faHandHoldingDollar,
+  faCircleDollarToSlot,
+  faBars,
+  faXmark,
+} from "@fortawesome/free-solid-svg-icons";
+import { faCreditCard, faHouse } from "@fortawesome/free-regular-svg-icons";
+import type { IconDefinition } from "@fortawesome/fontawesome-svg-core";
+
 type Route =
   | "dashboard"
   | "entities"
@@ -17,13 +29,13 @@ type Route =
   | "accounts"
   | "payments";
 
-const navItems: { route: Route; icon: string; label: string }[] = [
-  { route: "dashboard", icon: "◎", label: "Dashboard" },
-  { route: "entities", icon: "◆", label: "Entidades" },
-  { route: "accounts", icon: "▤", label: "Cuentas" },
-  { route: "loans", icon: "▸", label: "Préstamos" },
-  { route: "credit-cards", icon: "▬", label: "Tarjetas" },
-  { route: "payments", icon: "↗", label: "Pagos" },
+const navItems: { route: Route; icon: IconDefinition; label: string }[] = [
+  { route: "dashboard", icon: faHouse, label: "Dashboard" },
+  { route: "entities", icon: faBuildingColumns, label: "Entidades" },
+  { route: "accounts", icon: faPiggyBank, label: "Cuentas" },
+  { route: "loans", icon: faHandHoldingDollar, label: "Préstamos" },
+  { route: "credit-cards", icon: faCreditCard, label: "Tarjetas" },
+  { route: "payments", icon: faCircleDollarToSlot, label: "Pagos" },
 ];
 
 function getRouteFromHash(): Route {
@@ -82,7 +94,11 @@ function App() {
         onClick={() => setSidebarOpen(!sidebarOpen)}
         aria-label="Toggle menu"
       >
-        {sidebarOpen ? "✕" : "≡"}
+        {sidebarOpen ? (
+          <FontAwesomeIcon icon={faXmark} />
+        ) : (
+          <FontAwesomeIcon icon={faBars} />
+        )}
       </button>
 
       <nav className={`sidebar ${sidebarOpen ? "open" : ""}`}>
@@ -100,7 +116,9 @@ function App() {
               className={`nav-item ${currentRoute === item.route ? "active" : ""}`}
               onClick={() => navigate(item.route)}
             >
-              <span className="nav-icon">{item.icon}</span>
+              <span className="nav-icon">
+                <FontAwesomeIcon icon={item.icon} />
+              </span>
               {item.label}
             </button>
           ))}
@@ -112,7 +130,9 @@ function App() {
               className={`nav-item ${currentRoute === item.route ? "active" : ""}`}
               onClick={() => navigate(item.route)}
             >
-              <span className="nav-icon">{item.icon}</span>
+              <span className="nav-icon">
+                <FontAwesomeIcon icon={item.icon} />
+              </span>
               {item.label}
             </button>
           ))}
@@ -124,7 +144,9 @@ function App() {
               className={`nav-item ${currentRoute === item.route ? "active" : ""}`}
               onClick={() => navigate(item.route)}
             >
-              <span className="nav-icon">{item.icon}</span>
+              <span className="nav-icon">
+                <FontAwesomeIcon icon={item.icon} />
+              </span>
               {item.label}
             </button>
           ))}

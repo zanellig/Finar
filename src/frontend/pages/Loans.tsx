@@ -8,6 +8,12 @@ import {
   LoadingPage,
   EmptyState,
 } from "../components/shared";
+import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
+import {
+  faPlus,
+  faHandHoldingDollar,
+  faXmark,
+} from "@fortawesome/free-solid-svg-icons";
 
 export function Loans() {
   const [loans, setLoans] = useState<any[]>([]);
@@ -114,7 +120,8 @@ export function Loans() {
           onClick={openCreate}
           disabled={entities.length === 0}
         >
-          + Nuevo Préstamo
+          <FontAwesomeIcon icon={faPlus} style={{ marginRight: 8 }} /> Nuevo
+          Préstamo
         </button>
       </div>
 
@@ -132,7 +139,10 @@ export function Loans() {
       )}
 
       {loans.length === 0 ? (
-        <EmptyState icon="▸" text="No hay préstamos registrados" />
+        <EmptyState
+          icon={faHandHoldingDollar}
+          text="No hay préstamos registrados"
+        />
       ) : (
         <div className="card">
           <table className="data-table">
@@ -196,7 +206,7 @@ export function Loans() {
                       onClick={() => handleDelete(loan.id)}
                       title="Eliminar"
                     >
-                      ×
+                      <FontAwesomeIcon icon={faXmark} />
                     </button>
                   </td>
                 </tr>

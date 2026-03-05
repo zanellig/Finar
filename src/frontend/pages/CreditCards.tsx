@@ -7,6 +7,14 @@ import {
   LoadingPage,
   EmptyState,
 } from "../components/shared";
+import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
+import {
+  faPlus,
+  faCreditCard,
+  faXmark,
+  faPen,
+  faCircleInfo,
+} from "@fortawesome/free-solid-svg-icons";
 
 /** Compute days remaining until a YYYY-MM-DD due date. */
 function daysUntilDue(dueDate: string): number {
@@ -282,7 +290,8 @@ export function CreditCards() {
           onClick={openCreate}
           disabled={entities.length === 0}
         >
-          + Nueva Tarjeta
+          <FontAwesomeIcon icon={faPlus} style={{ marginRight: 8 }} /> Nueva
+          Tarjeta
         </button>
       </div>
 
@@ -300,7 +309,7 @@ export function CreditCards() {
       )}
 
       {cards.length === 0 ? (
-        <EmptyState icon="▬" text="No hay tarjetas registradas" />
+        <EmptyState icon={faCreditCard} text="No hay tarjetas registradas" />
       ) : (
         <div
           className="stats-grid"
@@ -348,7 +357,7 @@ export function CreditCards() {
                       color: "var(--white-50)",
                     }}
                   >
-                    CC
+                    <FontAwesomeIcon icon={faCreditCard} />
                   </div>
                 </div>
                 <div style={{ marginTop: "var(--space-4)" }}>
@@ -442,7 +451,8 @@ export function CreditCards() {
                     className="btn btn-primary btn-sm"
                     onClick={() => openSpend(card)}
                   >
-                    + Gasto
+                    <FontAwesomeIcon icon={faPlus} style={{ marginRight: 8 }} />{" "}
+                    Gasto
                   </button>
                   <button
                     className="btn btn-secondary btn-sm"
@@ -947,7 +957,7 @@ export function CreditCards() {
                             title="Editar"
                             style={{ fontSize: "var(--font-size-xs)" }}
                           >
-                            ✎
+                            <FontAwesomeIcon icon={faPen} />
                           </button>
                           <button
                             className="btn btn-ghost btn-sm"
@@ -955,7 +965,7 @@ export function CreditCards() {
                             title="Eliminar"
                             style={{ fontSize: "var(--font-size-xs)" }}
                           >
-                            ×
+                            <FontAwesomeIcon icon={faXmark} />
                           </button>
                         </div>
                       </div>

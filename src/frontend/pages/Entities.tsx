@@ -4,15 +4,12 @@ import {
   Modal,
   useToast,
   entityTypeLabel,
+  entityTypeIcon,
   LoadingPage,
   EmptyState,
 } from "../components/shared";
-
-const typeIcons: Record<string, string> = {
-  bank: "B",
-  wallet: "W",
-  asset_manager: "A",
-};
+import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
+import { faPlus, faBuildingColumns } from "@fortawesome/free-solid-svg-icons";
 
 export function Entities() {
   const [entities, setEntities] = useState<any[]>([]);
@@ -101,17 +98,19 @@ export function Entities() {
           className="btn btn-primary"
           onClick={openCreate}
         >
-          + Nueva Entidad
+          <FontAwesomeIcon icon={faPlus} style={{ marginRight: 8 }} /> Nueva
+          Entidad
         </button>
       </div>
 
       {entities.length === 0 ? (
         <EmptyState
-          icon="◆"
+          icon={faBuildingColumns}
           text="No hay entidades registradas. Creá tu primer banco o billetera."
           action={
             <button className="btn btn-primary" onClick={openCreate}>
-              + Crear Entidad
+              <FontAwesomeIcon icon={faPlus} style={{ marginRight: 8 }} /> Crear
+              Entidad
             </button>
           }
         />
@@ -142,7 +141,7 @@ export function Entities() {
                       color: "var(--green)",
                     }}
                   >
-                    {typeIcons[entity.type] || "E"}
+                    <FontAwesomeIcon icon={entityTypeIcon(entity.type)} />
                   </div>
                   <div>
                     <div

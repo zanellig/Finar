@@ -10,6 +10,15 @@ import {
   LoadingPage,
   EmptyState,
 } from "../components/shared";
+import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
+import {
+  faPlus,
+  faPiggyBank,
+  faCreditCard,
+  faChartLine,
+  faCircleQuestion,
+  faXmark,
+} from "@fortawesome/free-solid-svg-icons";
 
 const defaultForm = {
   entity_id: "",
@@ -22,12 +31,6 @@ const defaultForm = {
   is_salary_account: false,
   overdraft_limit: "",
   tna_rate: "",
-};
-
-const typeLetters: Record<string, string> = {
-  savings: "S",
-  checking: "C",
-  interest: "R",
 };
 
 export function Accounts() {
@@ -149,7 +152,8 @@ export function Accounts() {
           onClick={openCreate}
           disabled={entities.length === 0}
         >
-          + Nueva Cuenta
+          <FontAwesomeIcon icon={faPlus} style={{ marginRight: 8 }} /> Nueva
+          Cuenta
         </button>
       </div>
 
@@ -167,7 +171,7 @@ export function Accounts() {
       )}
 
       {accounts.length === 0 ? (
-        <EmptyState icon="▤" text="No hay cuentas registradas" />
+        <EmptyState icon={faPiggyBank} text="No hay cuentas registradas" />
       ) : (
         <div
           style={{
@@ -200,7 +204,15 @@ export function Accounts() {
                         color: "var(--green)",
                       }}
                     >
-                      {typeLetters[acct.type] || "?"}
+                      {acct.type === "savings" ? (
+                        <FontAwesomeIcon icon={faPiggyBank} />
+                      ) : acct.type === "checking" ? (
+                        <FontAwesomeIcon icon={faCreditCard} />
+                      ) : acct.type === "interest" ? (
+                        <FontAwesomeIcon icon={faChartLine} />
+                      ) : (
+                        <FontAwesomeIcon icon={faCircleQuestion} />
+                      )}
                     </div>
                     <div className="list-item-details">
                       <div className="list-item-title">
@@ -251,7 +263,7 @@ export function Accounts() {
                       className="btn btn-ghost btn-sm"
                       onClick={() => handleDelete(acct.id)}
                     >
-                      ×
+                      <FontAwesomeIcon icon={faXmark} />
                     </button>
                   </div>
                 </div>

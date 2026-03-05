@@ -1,6 +1,16 @@
 import React, { useEffect, useState } from "react";
 import { createRoot } from "react-dom/client";
 import "./landing.css";
+import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
+import {
+  faBuildingColumns,
+  faPiggyBank,
+  faHandHoldingDollar,
+  faCircleDollarToSlot,
+  faChartLine,
+  faArrowRight,
+} from "@fortawesome/free-solid-svg-icons";
+import { faCreditCard } from "@fortawesome/free-regular-svg-icons";
 
 interface ExchangeRate {
   id: string;
@@ -13,32 +23,32 @@ interface ExchangeRate {
 
 const features = [
   {
-    icon: "◆",
+    icon: faBuildingColumns,
     title: "Entidades",
     desc: "Registrá bancos, billeteras virtuales y sociedades de bolsa en un solo lugar.",
   },
   {
-    icon: "▤",
+    icon: faPiggyBank,
     title: "Cuentas",
     desc: "Caja de ahorro, cuenta corriente y remunerada. Saldo, TNA, descubierto y más.",
   },
   {
-    icon: "▸",
+    icon: faHandHoldingDollar,
     title: "Préstamos con CFTEA",
     desc: "Calculá cuotas mensuales automáticamente a partir del capital, plazo y CFTEA.",
   },
   {
-    icon: "▬",
+    icon: faCreditCard,
     title: "Tarjetas de crédito",
     desc: "Límite modificable, gastos en cuotas ARS/USD, disponible en tiempo real.",
   },
   {
-    icon: "↗",
+    icon: faCircleDollarToSlot,
     title: "Pagos integrados",
     desc: "Pagá préstamos y tarjetas desde cualquier cuenta. Descuento automático de saldo.",
   },
   {
-    icon: "≡",
+    icon: faChartLine,
     title: "Cotizaciones en vivo",
     desc: "Dólar blue, oficial, tarjeta, crypto y más. Actualización automática cada 30 min.",
   },
@@ -80,7 +90,8 @@ function Landing() {
             Cotizaciones
           </a>
           <a href="/" className="nav-cta">
-            Abrir App →
+            Abrir App{" "}
+            <FontAwesomeIcon icon={faArrowRight} style={{ marginLeft: 8 }} />
           </a>
         </div>
       </nav>
@@ -105,7 +116,8 @@ function Landing() {
 
         <div className="hero-actions">
           <a href="/" className="hero-btn-primary">
-            Abrir Dashboard →
+            Abrir Dashboard{" "}
+            <FontAwesomeIcon icon={faArrowRight} style={{ marginLeft: 8 }} />
           </a>
           <a href="#features" className="hero-btn-secondary">
             Ver funciones
@@ -177,7 +189,9 @@ function Landing() {
         <div className="features-grid">
           {features.map((f, i) => (
             <div key={i} className="feature-card">
-              <div className="feature-icon">{f.icon}</div>
+              <div className="feature-icon">
+                <FontAwesomeIcon icon={f.icon as any} size="2x" />
+              </div>
               <div className="feature-title">{f.title}</div>
               <div className="feature-desc">{f.desc}</div>
             </div>
@@ -217,7 +231,8 @@ function Landing() {
           Sin registro. Sin cloud. Todo corre en tu máquina con SQLite.
         </p>
         <a href="/" className="hero-btn-primary">
-          Abrir Dashboard →
+          Abrir Dashboard{" "}
+          <FontAwesomeIcon icon={faArrowRight} style={{ marginLeft: 8 }} />
         </a>
       </section>
 

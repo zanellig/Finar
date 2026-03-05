@@ -1,4 +1,15 @@
 import React, { useState, useCallback, type ReactNode } from "react";
+import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
+import {
+  faXmark,
+  faCheckCircle,
+  faCircleXmark,
+  faBuildingColumns,
+  faWallet,
+  faChartLine,
+  faCircleQuestion,
+} from "@fortawesome/free-solid-svg-icons";
+import type { IconDefinition } from "@fortawesome/fontawesome-svg-core";
 
 interface ModalProps {
   isOpen: boolean;
@@ -39,7 +50,7 @@ export function Modal({
             onClick={onClose}
             aria-label="Close"
           >
-            ×
+            <FontAwesomeIcon icon={faXmark} />
           </button>
         </div>
         <div className="modal-body">{children}</div>
@@ -75,7 +86,11 @@ export function useToast() {
     <div className="toast-container">
       {toasts.map((toast) => (
         <div key={toast.id} className={`toast toast-${toast.type}`}>
-          <span>{toast.type === "success" ? "✓" : "✗"}</span>
+          <span className="toast-icon">
+            <FontAwesomeIcon
+              icon={toast.type === "success" ? faCheckCircle : faCircleXmark}
+            />
+          </span>
           <span>{toast.text}</span>
         </div>
       ))}
@@ -105,13 +120,13 @@ export function entityTypeLabel(type: string): string {
   return labels[type] || type;
 }
 
-export function entityTypeIcon(type: string): string {
-  const icons: Record<string, string> = {
-    bank: "B",
-    wallet: "W",
-    asset_manager: "A",
+export function entityTypeIcon(type: string): IconDefinition {
+  const icons: Record<string, IconDefinition> = {
+    bank: faBuildingColumns,
+    wallet: faWallet,
+    asset_manager: faChartLine,
   };
-  return icons[type] || "E";
+  return icons[type] || faCircleQuestion;
 }
 
 export function accountTypeLabel(type: string): string {
@@ -149,13 +164,15 @@ export function EmptyState({
   text,
   action,
 }: {
-  icon: string;
+  icon: IconDefinition;
   text: string;
   action?: ReactNode;
 }) {
   return (
     <div className="empty-state">
-      <div className="empty-state-icon">{icon}</div>
+      <div className="empty-state-icon">
+        <FontAwesomeIcon icon={icon} size="3x" />
+      </div>
       <div className="empty-state-text">{text}</div>
       {action}
     </div>

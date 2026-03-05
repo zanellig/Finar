@@ -7,6 +7,15 @@ import {
   LoadingPage,
   EmptyState,
 } from "../components/shared";
+import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
+import {
+  faPlus,
+  faCircleDollarToSlot,
+  faHandHoldingDollar,
+  faCircleCheck,
+  faCircleExclamation,
+} from "@fortawesome/free-solid-svg-icons";
+import { faCreditCard } from "@fortawesome/free-regular-svg-icons";
 
 /**
  * Compute the "per-period" cost for a credit card — i.e. the sum of all
@@ -251,7 +260,8 @@ export function Payments() {
             accounts.length === 0 || (loans.length === 0 && cards.length === 0)
           }
         >
-          + Registrar Pago
+          <FontAwesomeIcon icon={faPlus} style={{ marginRight: 8 }} /> Registrar
+          Pago
         </button>
       </div>
 
@@ -270,7 +280,10 @@ export function Payments() {
       )}
 
       {payments.length === 0 ? (
-        <EmptyState icon="↗" text="No hay pagos registrados" />
+        <EmptyState
+          icon={faCircleDollarToSlot}
+          text="No hay pagos registrados"
+        />
       ) : (
         <div className="card">
           <table className="data-table">
@@ -294,6 +307,12 @@ export function Payments() {
                     <span
                       className={`badge ${p.type === "loan" ? "badge-danger" : "badge-purple"}`}
                     >
+                      <FontAwesomeIcon
+                        icon={
+                          p.type === "loan" ? faHandHoldingDollar : faCreditCard
+                        }
+                        style={{ marginRight: 4 }}
+                      />
                       {p.type === "loan" ? "préstamo" : "tarjeta"}
                     </span>
                   </td>
@@ -572,9 +591,23 @@ export function Payments() {
                       animation: "fadeIn 0.2s ease",
                     }}
                   >
-                    {fundsStatus === "sufficient"
-                      ? "✓ fondos OK"
-                      : "✗ fondos insuf."}
+                    {fundsStatus === "sufficient" ? (
+                      <>
+                        <FontAwesomeIcon
+                          icon={faCircleCheck}
+                          style={{ marginRight: 4 }}
+                        />{" "}
+                        fondos OK
+                      </>
+                    ) : (
+                      <>
+                        <FontAwesomeIcon
+                          icon={faCircleExclamation}
+                          style={{ marginRight: 4 }}
+                        />{" "}
+                        fondos insuf.
+                      </>
+                    )}
                   </span>
                 )}
               </div>
