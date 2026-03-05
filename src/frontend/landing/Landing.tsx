@@ -265,9 +265,10 @@ function Landing() {
           <div className="notice-content">
             <div className="notice-title">Etapa Alpha</div>
             <div className="notice-text">
-              FinAR se encuentra actualmente en fase de pruebas (Alpha). Es
-              posible que encuentres errores o comportamientos inesperados
-              durante su uso.
+              Si bien nos aseguramos de que todo cálculo financiero e
+              interacción con la aplicación sea extremadamente preciso, FinAR se
+              encuentra actualmente en fase de pruebas (Alpha) y es posible que
+              encuentres errores o comportamientos inesperados durante su uso.
             </div>
           </div>
         </div>
@@ -281,9 +282,17 @@ function Landing() {
           <div className="notice-content">
             <div className="notice-title">Disponibilidad de Plataformas</div>
             <div className="notice-text">
-              Disponible únicamente para <strong>Windows, Linux y MacOS</strong>
-              . Las versiones para dispositivos móviles (Android/iOS) no están
-              planificadas.
+              Disponible para <strong>Windows, Linux y MacOS</strong>
+              . <br />
+              Las versiones para dispositivos móviles (Android/iOS) no están
+              planificadas. <br />
+              <br />
+              Si usted es un usuario avanzado, podrá correr la aplicación en su
+              propia infraestructura y acceder mediante el navegador de su
+              celular, pero esto <strong>
+                no es una práctica recomendada
+              </strong>{" "}
+              y no se ofrece soporte para la misma.
             </div>
           </div>
         </div>
@@ -293,7 +302,7 @@ function Landing() {
       <footer className="landing-footer">
         <div className="footer-left">
           <div className="footer-logo">FA</div>
-          <span className="footer-text">FinAR v1.0.0</span>
+          <span className="footer-text">FinAR v0.0.1</span>
         </div>
         <div className="footer-right">
           Cogniar &copy; {new Date().getFullYear()}

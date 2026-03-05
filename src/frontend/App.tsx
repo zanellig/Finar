@@ -162,7 +162,7 @@ function App() {
             letterSpacing: "0.05em",
           }}
         >
-          v1.0.0
+          v0.0.1
         </div>
       </nav>
 

@@ -660,7 +660,7 @@ body {
   gap: 8px;
   width: auto;
   padding: 0 12px;
-  color: var(--white-30);
+  color: var(--white-50);
   font-size: 16px;
 }
 
@@ -903,7 +903,7 @@ body {
   .notice-icon.group {
     flex-direction: column;
     width: 40px;
-    height: auto;
+    height: fit-content;
     padding: 12px 0;
   }
 }
