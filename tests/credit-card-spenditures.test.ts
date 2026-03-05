@@ -736,3 +736,118 @@ describe("Spenditure delete integrity", () => {
     expect(card.available_limit).toBe(10000000);
   });
 });
+
+// ── Update — ARS-only installment invariant ──────────────────────
+
+describe("Spenditure update — ARS-only installment invariant", () => {
+  let raw: Database;
+  let service: CreditCardService;
+
+  beforeEach(() => {
+    const db = createTestDb();
+    raw = db.raw;
+    service = new CreditCardService(db.orm);
+    seedEntity(raw);
+    seedRate(raw, { sellRate: 1200 });
+    seedCreditCard(raw, { id: "cc-1", spendLimit: 10000000 });
+  });
+
+  it("rejects switching ARS installments to USD", () => {
+    const spend = service.createSpenditure("cc-1", {
+      description: "ARS installments",
+      total_amount: 9000,
+      installments: 3,
+      currency: "ARS",
+      due_date: "2026-06-01",
+    });
+    // Change currency to USD while keeping installments=3
+    expect(() =>
+      service.updateSpenditure("cc-1", spend!.id, { currency: "USD" }),
+    ).toThrow(ValidationError);
+  });
+
+  it("rejects changing USD 1× to multi-installment", () => {
+    const spend = service.createSpenditure("cc-1", {
+      description: "USD single",
+      amount: 50,
+      currency: "USD",
+      due_date: "2026-06-01",
+    });
+    // Change installments to 3 while keeping currency=USD
+    expect(() =>
+      service.updateSpenditure("cc-1", spend!.id, {
+        installments: 3,
+        total_amount: 150,
+      }),
+    ).toThrow(ValidationError);
+  });
+
+  it("allows ARS multi-installment update", () => {
+    const spend = service.createSpenditure("cc-1", {
+      description: "ARS installments",
+      total_amount: 9000,
+      installments: 3,
+      currency: "ARS",
+      due_date: "2026-06-01",
+    });
+    const updated = service.updateSpenditure("cc-1", spend!.id, {
+      total_amount: 12000,
+      installments: 6,
+    });
+    expect(updated!.total_amount).toBe(12000);
+    expect(updated!.installments).toBe(6);
+  });
+
+  it("allows USD 1× amount update", () => {
+    const spend = service.createSpenditure("cc-1", {
+      description: "USD single",
+      amount: 50,
+      currency: "USD",
+      due_date: "2026-06-01",
+    });
+    const updated = service.updateSpenditure("cc-1", spend!.id, {
+      amount: 75,
+    });
+    expect(updated!.total_amount).toBe(75);
+    expect(updated!.installments).toBe(1);
+  });
+});
+
+// ── Update — empty payload guard ─────────────────────────────────
+
+describe("Spenditure update — empty payload guard", () => {
+  let raw: Database;
+  let service: CreditCardService;
+
+  beforeEach(() => {
+    const db = createTestDb();
+    raw = db.raw;
+    service = new CreditCardService(db.orm);
+    seedEntity(raw);
+    seedCreditCard(raw, { id: "cc-1", spendLimit: 10000000 });
+  });
+
+  it("rejects empty object update", () => {
+    const spend = service.createSpenditure("cc-1", {
+      description: "Test",
+      amount: 100,
+      currency: "ARS",
+      due_date: "2026-06-01",
+    });
+    expect(() => service.updateSpenditure("cc-1", spend!.id, {})).toThrow(
+      ValidationError,
+    );
+  });
+
+  it("rejects unknown-only payload", () => {
+    const spend = service.createSpenditure("cc-1", {
+      description: "Test",
+      amount: 100,
+      currency: "ARS",
+      due_date: "2026-06-01",
+    });
+    expect(() =>
+      service.updateSpenditure("cc-1", spend!.id, { foo: "bar" } as any),
+    ).toThrow(ValidationError);
+  });
+});

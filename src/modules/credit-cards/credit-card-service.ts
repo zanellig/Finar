@@ -205,6 +205,12 @@ export class CreditCardService {
       const newCurrency = (finInput.currency ?? existing.currency) as Currency;
       const newInstallments = finInput.installments ?? existing.installments;
 
+      if (newCurrency === "USD" && newInstallments > 1) {
+        throw new ValidationError(
+          "Installments are only available in ARS payments",
+        );
+      }
+
       let totalAmount: number;
       let monthlyAmount: number;
 
@@ -239,6 +245,10 @@ export class CreditCardService {
       values.monthlyAmount = monthlyAmount;
       values.remainingInstallments = newInstallments;
       values.amount = newInstallments === 1 ? totalAmount : monthlyAmount;
+    }
+
+    if (Object.keys(values).length === 0) {
+      throw new ValidationError("No recognized fields to update");
     }
 
     this.repo.updateSpenditure(spendId, values);

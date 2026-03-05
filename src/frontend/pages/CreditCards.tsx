@@ -217,9 +217,14 @@ export function CreditCards() {
         newAmount !== editingSpenditure.total_amount ||
         editForm.currency !== editingSpenditure.currency
       ) {
-        payload.amount = newAmount;
+        const inst = parseInt(editForm.installments);
+        if (inst > 1) {
+          payload.total_amount = newAmount;
+        } else {
+          payload.amount = newAmount;
+        }
         payload.currency = editForm.currency;
-        payload.installments = parseInt(editForm.installments);
+        payload.installments = inst;
       }
     }
     try {
