@@ -91,4 +91,59 @@ describe("runMigrations", () => {
 
     raw.close(false);
   });
+
+  it("has `due_date` column on cc_spenditures after migrations", () => {
+    const raw = new Database(":memory:", { strict: true });
+    raw.run("PRAGMA foreign_keys = ON;");
+    const orm = drizzle(raw, { schema });
+
+    // Seed parent rows BEFORE migrations so backfill can apply
+    // We need the initial schema first
+    const initialSql = raw.query("SELECT 1").get(); // just to confirm connection
+
+    runMigrations(orm, raw);
+
+    // Seed required parent rows
+    raw.run(
+      "INSERT INTO entities (id, name, type) VALUES ('e1', 'Entity', 'bank')",
+    );
+    raw.run(
+      "INSERT INTO credit_cards (id, entity_id, name, spend_limit) VALUES ('c1', 'e1', 'Card', 0)",
+    );
+
+    // Verify that the column exists by querying it directly
+    const columns = raw.query("PRAGMA table_info(cc_spenditures)").all() as {
+      name: string;
+    }[];
+    const dueDateColumn = columns.find((c) => c.name === "due_date");
+    expect(dueDateColumn).toBeDefined();
+
+    // New inserts without due_date get NULL (column has no DEFAULT)
+    raw.run(
+      `INSERT INTO cc_spenditures (id, credit_card_id, description, amount, currency, installments, monthly_amount, total_amount, remaining_installments)
+       VALUES ('s1', 'c1', 'Test', 100, 'ARS', 1, 100, 100, 1)`,
+    );
+
+    const row = raw
+      .query("SELECT due_date FROM cc_spenditures WHERE id = 's1'")
+      .get() as { due_date: string | null };
+
+    expect(row).toBeDefined();
+    // Column is nullable with no default — new rows get NULL
+    expect(row.due_date).toBeNull();
+
+    // Explicit due_date is persisted correctly
+    raw.run(
+      `INSERT INTO cc_spenditures (id, credit_card_id, description, amount, currency, installments, monthly_amount, total_amount, remaining_installments, due_date)
+       VALUES ('s2', 'c1', 'Test 2', 200, 'ARS', 1, 200, 200, 1, '2026-06-01')`,
+    );
+
+    const row2 = raw
+      .query("SELECT due_date FROM cc_spenditures WHERE id = 's2'")
+      .get() as { due_date: string | null };
+
+    expect(row2.due_date).toBe("2026-06-01");
+
+    raw.close(false);
+  });
 });
