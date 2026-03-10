@@ -4,6 +4,7 @@ import {
   real,
   integer,
   index,
+  uniqueIndex,
 } from "drizzle-orm/sqlite-core";
 import { sql } from "drizzle-orm";
 
@@ -140,3 +141,67 @@ export const exchangeRates = sqliteTable("exchange_rates", {
     .notNull()
     .default(sql`(datetime('now'))`),
 });
+
+// ---- Paychecks ----
+
+export const paychecks = sqliteTable(
+  "paychecks",
+  {
+    id: text("id").primaryKey(),
+    name: text("name").notNull(),
+    accountId: text("account_id")
+      .notNull()
+      .references(() => accounts.id, { onDelete: "cascade" }),
+    currency: text("currency", { enum: ["ARS", "USD"] }).notNull(),
+    amount: real("amount").notNull(),
+    frequency: text("frequency", {
+      enum: ["monthly", "biweekly", "weekly"],
+    }).notNull(),
+    nextRunAt: text("next_run_at").notNull(),
+    lastRunAt: text("last_run_at"),
+    isActive: integer("is_active", { mode: "boolean" })
+      .notNull()
+      .default(true),
+    description: text("description").notNull().default(""),
+    createdAt: text("created_at")
+      .notNull()
+      .default(sql`(datetime('now'))`),
+  },
+  (table) => [
+    index("idx_paychecks_account").on(table.accountId),
+    index("idx_paychecks_active_next_run").on(table.isActive, table.nextRunAt),
+  ],
+);
+
+// ---- Paycheck Runs ----
+
+export const paycheckRuns = sqliteTable(
+  "paycheck_runs",
+  {
+    id: text("id").primaryKey(),
+    paycheckId: text("paycheck_id")
+      .notNull()
+      .references(() => paychecks.id, { onDelete: "cascade" }),
+    runAt: text("run_at").notNull(),
+    amount: real("amount").notNull(),
+    currency: text("currency", { enum: ["ARS", "USD"] }).notNull(),
+    accountBalanceBefore: real("account_balance_before").notNull(),
+    accountBalanceAfter: real("account_balance_after").notNull(),
+    idempotencyKey: text("idempotency_key").notNull(),
+    status: text("status", {
+      enum: ["applied", "skipped", "failed"],
+    }).notNull(),
+    failureReason: text("failure_reason"),
+    createdAt: text("created_at")
+      .notNull()
+      .default(sql`(datetime('now'))`),
+  },
+  (table) => [
+    index("idx_paycheck_runs_paycheck_run_at").on(
+      table.paycheckId,
+      table.runAt,
+    ),
+    uniqueIndex("idx_paycheck_runs_idempotency_key").on(table.idempotencyKey),
+  ],
+);
+
