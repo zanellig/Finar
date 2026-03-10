@@ -1,6 +1,6 @@
 # Universal Agent Guidance
 
-These docs distill the reusable parts of this repository's project-specific agent guidance into language-agnostic defaults.
+Agent guidance for language-agnostic defaults.
 
 Use them in this order:
 
