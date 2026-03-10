@@ -11,14 +11,20 @@ import {
   stopRatesFetcher,
 } from "./api/rates";
 import { getDashboardRoutes } from "./api/dashboard";
+import { getPaychecksRoutes } from "./api/paychecks";
+import {
+  startPaycheckScheduler,
+  stopPaycheckScheduler,
+} from "./modules/paychecks/paycheck-scheduler";
 import { getDbPath, closeDb } from "./db/database";
 import { registerShutdownHooks } from "./lifecycle";
 
 // --compile implies --production, which replaces NODE_ENV at bundle time
 const isDev = process.env.NODE_ENV !== "production";
 
-// Start periodic rate fetching
+// Start periodic rate fetching and paycheck scheduler
 startRatesFetcher();
+startPaycheckScheduler();
 
 const server = Bun.serve({
   port: 3000,
@@ -32,6 +38,7 @@ const server = Bun.serve({
     ...getPaymentsRoutes(),
     ...getRatesRoutes(),
     ...getDashboardRoutes(),
+    ...getPaychecksRoutes(),
   },
   fetch(req) {
     const url = new URL(req.url);
@@ -50,7 +57,7 @@ console.log(`🏦 Finance Tracker running at ${server.url}`);
 console.log(`📂 Database: ${getDbPath()}`);
 
 // Graceful shutdown: stop intervals → close DB → stop server
-registerShutdownHooks(server, [stopRatesFetcher, closeDb]);
+registerShutdownHooks(server, [stopPaycheckScheduler, stopRatesFetcher, closeDb]);
 
 // Auto-open dashboard in default browser (production only)
 if (!isDev) {
