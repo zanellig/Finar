@@ -15,6 +15,11 @@ import {
   InsufficientFundsError,
   InvalidPaymentError,
   ValidationError,
+  PaycheckNotFoundError,
+  PaycheckInactiveError,
+  PaycheckNotDueError,
+  DuplicateRunError,
+  InvariantViolationError,
 } from "../../modules/shared/errors";
 
 /**
@@ -26,8 +31,13 @@ import {
  *   InsufficientFundsError      → 400
  *   CurrencyMismatchError       → 400
  *   NotFoundError               → 404
+ *   PaycheckNotFoundError       → 404
  *   ConflictError               → 409
+ *   PaycheckInactiveError       → 409
+ *   PaycheckNotDueError         → 409
+ *   DuplicateRunError           → 409
  *   MissingRateError            → 503
+ *   InvariantViolationError     → 500
  *   Unknown DomainError         → 400
  *   Everything else             → 500
  */
@@ -42,10 +52,18 @@ export function mapErrorToResponse(err: unknown): Response {
   if (err instanceof MissingRateError) {
     return Response.json({ error: err.message }, { status: 503 });
   }
-  if (err instanceof NotFoundError) {
+  if (err instanceof InvariantViolationError) {
+    return Response.json({ error: err.message }, { status: 500 });
+  }
+  if (err instanceof NotFoundError || err instanceof PaycheckNotFoundError) {
     return Response.json({ error: err.message }, { status: 404 });
   }
-  if (err instanceof ConflictError) {
+  if (
+    err instanceof ConflictError ||
+    err instanceof PaycheckInactiveError ||
+    err instanceof PaycheckNotDueError ||
+    err instanceof DuplicateRunError
+  ) {
     return Response.json({ error: err.message }, { status: 409 });
   }
   if (err instanceof InsufficientFundsError) {

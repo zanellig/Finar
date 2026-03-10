@@ -8,6 +8,8 @@ import {
   ccSpenditures,
   payments,
   exchangeRates,
+  paychecks,
+  paycheckRuns,
 } from "./schema";
 
 // ---- Select schemas (response types) ----
@@ -19,6 +21,8 @@ export const selectCreditCardSchema = createSelectSchema(creditCards);
 export const selectCcSpenditureSchema = createSelectSchema(ccSpenditures);
 export const selectPaymentSchema = createSelectSchema(payments);
 export const selectExchangeRateSchema = createSelectSchema(exchangeRates);
+export const selectPaycheckSchema = createSelectSchema(paychecks);
+export const selectPaycheckRunSchema = createSelectSchema(paycheckRuns);
 
 // ---- Shared enums & patterns ----
 
@@ -28,6 +32,14 @@ export const currencyEnum = z.enum(["ARS", "USD"]);
 export const dueDateSchema = z
   .string()
   .regex(/^\d{4}-\d{2}-\d{2}$/, "due_date must be in YYYY-MM-DD format");
+
+/** ISO 8601 datetime string (YYYY-MM-DDTHH:mm or full datetime). */
+export const datetimeSchema = z
+  .string()
+  .regex(
+    /^\d{4}-\d{2}-\d{2}[T ]\d{2}:\d{2}(:\d{2})?$/,
+    "datetime must be in YYYY-MM-DDTHH:mm or YYYY-MM-DD HH:mm:ss format",
+  );
 
 // ---- Insert schemas (request validation) ----
 // Accept snake_case from frontend, transform to camelCase for Drizzle
@@ -176,6 +188,42 @@ export const insertPaymentSchema = z.object({
   description: z.string().trim().max(200).default(""),
 });
 
+// ---- Paycheck schemas ----
+
+export const insertPaycheckSchema = z.object({
+  name: z.string().trim().min(1, "Name is required").max(100),
+  account_id: z.string().min(1, "account_id is required"),
+  currency: z.enum(["ARS", "USD"]),
+  amount: z.coerce
+    .number()
+    .positive("Amount must be positive")
+    .max(999_999_999),
+  frequency: z.enum(["monthly", "biweekly", "weekly"]),
+  next_run_at: datetimeSchema,
+  description: z.string().trim().max(200).default(""),
+});
+
+export const updatePaycheckSchema = z.object({
+  name: z.string().trim().min(1).max(100).optional(),
+  amount: z.coerce
+    .number()
+    .positive("Amount must be positive")
+    .max(999_999_999)
+    .optional(),
+  frequency: z.enum(["monthly", "biweekly", "weekly"]).optional(),
+  next_run_at: datetimeSchema.optional(),
+  is_active: z
+    .union([z.boolean(), z.coerce.number()])
+    .transform((v) => !!v)
+    .optional(),
+  description: z.string().trim().max(200).optional(),
+});
+
+export const runPaycheckSchema = z.object({
+  idempotency_key: z.string().min(1, "idempotency_key is required"),
+  run_at: datetimeSchema.optional(),
+});
+
 // ---- Inferred types ----
 
 export type Entity = z.infer<typeof selectEntitySchema>;
@@ -185,6 +233,8 @@ export type CreditCard = z.infer<typeof selectCreditCardSchema>;
 export type CcSpenditure = z.infer<typeof selectCcSpenditureSchema>;
 export type Payment = z.infer<typeof selectPaymentSchema>;
 export type ExchangeRate = z.infer<typeof selectExchangeRateSchema>;
+export type Paycheck = z.infer<typeof selectPaycheckSchema>;
+export type PaycheckRun = z.infer<typeof selectPaycheckRunSchema>;
 
 export type UpdateSpenditureMetadataInput = z.infer<
   typeof updateSpenditureMetadataSchema

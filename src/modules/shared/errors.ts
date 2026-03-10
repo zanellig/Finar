@@ -30,3 +30,21 @@ export class CurrencyMismatchError extends DomainError {}
 
 /** 503 — required exchange rate is missing; aggregation cannot proceed */
 export class MissingRateError extends DomainError {}
+
+// ---- Paycheck errors ----
+
+/** 404 — paycheck does not exist */
+export class PaycheckNotFoundError extends DomainError {}
+
+/** 409 — paycheck is disabled */
+export class PaycheckInactiveError extends DomainError {}
+
+/** 409 — paycheck next_run_at is in the future */
+export class PaycheckNotDueError extends DomainError {}
+
+/** 409 — idempotency key already used */
+export class DuplicateRunError extends DomainError {}
+
+/** 500 — should-never-happen guard */
+export class InvariantViolationError extends DomainError {}
+
