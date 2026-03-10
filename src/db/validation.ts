@@ -11,6 +11,7 @@ import {
   paychecks,
   paycheckRuns,
 } from "./schema";
+import { normalizeDatetime } from "../modules/shared/datetime";
 
 // ---- Select schemas (response types) ----
 
@@ -33,13 +34,18 @@ export const dueDateSchema = z
   .string()
   .regex(/^\d{4}-\d{2}-\d{2}$/, "due_date must be in YYYY-MM-DD format");
 
-/** ISO 8601 datetime string (YYYY-MM-DDTHH:mm or full datetime). */
+/**
+ * Datetime string — validates as ISO 8601 and normalizes to the canonical
+ * "YYYY-MM-DD HH:mm:ss" format (space separator, seconds padded).
+ * This ensures lexicographic comparisons in SQLite work correctly.
+ */
 export const datetimeSchema = z
   .string()
   .regex(
     /^\d{4}-\d{2}-\d{2}[T ]\d{2}:\d{2}(:\d{2})?$/,
     "datetime must be in YYYY-MM-DDTHH:mm or YYYY-MM-DD HH:mm:ss format",
-  );
+  )
+  .transform(normalizeDatetime);
 
 // ---- Insert schemas (request validation) ----
 // Accept snake_case from frontend, transform to camelCase for Drizzle

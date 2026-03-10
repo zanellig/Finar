@@ -12,21 +12,11 @@
 
 import { getDb, getOrm } from "../../db/database";
 import { PaycheckService, computeNextRunAt } from "./paycheck-service";
+import { formatLocalDatetime } from "../shared/datetime";
 
 const SCHEDULER_INTERVAL_MS = 60_000; // 1 minute
 
 let intervalId: ReturnType<typeof setInterval> | null = null;
-
-/**
- * Format a Date as "YYYY-MM-DD HH:mm:ss" for SQLite datetime comparison.
- */
-function formatDatetime(d: Date): string {
-  const pad = (n: number) => String(n).padStart(2, "0");
-  return (
-    `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())} ` +
-    `${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}`
-  );
-}
 
 /**
  * Build deterministic idempotency key for a scheduled run.
@@ -80,7 +70,7 @@ function processPaycheck(
 function tick(): void {
   try {
     const service = new PaycheckService(getDb(), getOrm());
-    const now = formatDatetime(new Date());
+    const now = formatLocalDatetime(new Date());
     const duePaychecks = service.findDuePaychecks(now);
 
     for (const paycheck of duePaychecks) {

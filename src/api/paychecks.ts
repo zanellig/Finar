@@ -10,6 +10,7 @@ import {
   runPaycheckSchema,
 } from "../db/validation";
 import { PaycheckService } from "../modules/paychecks/paycheck-service";
+import { formatLocalDatetime } from "../modules/shared/datetime";
 import { routeParam, parseJsonBody } from "./http/request";
 import { mapErrorToResponse } from "./http/response";
 
@@ -75,9 +76,7 @@ export function getPaychecksRoutes() {
             );
 
           const data = runPaycheckSchema.parse(body);
-          const runAt =
-            data.run_at ??
-            new Date().toISOString().replace("T", " ").slice(0, 19);
+          const runAt = data.run_at ?? formatLocalDatetime(new Date());
           const service = getService();
           const run = service.runPaycheck(id, runAt, data.idempotency_key);
           return Response.json(run, { status: 201 });
