@@ -8,6 +8,7 @@ import { Loans } from "./pages/Loans";
 import { CreditCards } from "./pages/CreditCards";
 import { Accounts } from "./pages/Accounts";
 import { Payments } from "./pages/Payments";
+import { Paychecks } from "./pages/Paychecks";
 
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import {
@@ -18,7 +19,11 @@ import {
   faBars,
   faXmark,
 } from "@fortawesome/free-solid-svg-icons";
-import { faCreditCard, faHouse } from "@fortawesome/free-regular-svg-icons";
+import {
+  faCreditCard,
+  faHouse,
+  faMoneyBill1,
+} from "@fortawesome/free-regular-svg-icons";
 import type { IconDefinition } from "@fortawesome/fontawesome-svg-core";
 
 type Route =
@@ -27,7 +32,8 @@ type Route =
   | "loans"
   | "credit-cards"
   | "accounts"
-  | "payments";
+  | "payments"
+  | "paychecks";
 
 const navItems: { route: Route; icon: IconDefinition; label: string }[] = [
   { route: "dashboard", icon: faHouse, label: "Dashboard" },
@@ -36,6 +42,7 @@ const navItems: { route: Route; icon: IconDefinition; label: string }[] = [
   { route: "loans", icon: faHandHoldingDollar, label: "Préstamos" },
   { route: "credit-cards", icon: faCreditCard, label: "Tarjetas" },
   { route: "payments", icon: faCircleDollarToSlot, label: "Pagos" },
+  { route: "paychecks", icon: faMoneyBill1, label: "Sueldos" },
 ];
 
 function getRouteFromHash(): Route {
@@ -47,6 +54,7 @@ function getRouteFromHash(): Route {
     "credit-cards",
     "accounts",
     "payments",
+    "paychecks",
   ];
   return valid.includes(hash as Route) ? (hash as Route) : "dashboard";
 }
@@ -82,6 +90,8 @@ function App() {
         return <Accounts />;
       case "payments":
         return <Payments />;
+      case "paychecks":
+        return <Paychecks />;
       default:
         return <Dashboard />;
     }

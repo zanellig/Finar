@@ -1110,6 +1110,87 @@ body {
 }
 
 /* ========================================
+   Paycheck-specific
+   ======================================== */
+.paycheck-run-panel {
+  overflow: hidden;
+  animation: expandDown 0.25s var(--ease-out) forwards;
+  border-top: 1px solid var(--white-06);
+  margin-top: var(--space-3);
+  padding-top: var(--space-3);
+}
+
+@keyframes expandDown {
+  from {
+    max-height: 0;
+    opacity: 0;
+  }
+  to {
+    max-height: 600px;
+    opacity: 1;
+  }
+}
+
+.paycheck-next-run {
+  font-family: var(--font-mono);
+  font-size: var(--font-size-xs);
+  color: var(--white-30);
+  letter-spacing: 0.02em;
+}
+
+.paycheck-status-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: var(--radius-full);
+  flex-shrink: 0;
+}
+
+.paycheck-status-dot.active {
+  background: var(--green);
+  box-shadow: 0 0 6px var(--green-15);
+  animation: pulse-dot 2s ease-in-out infinite;
+}
+
+.paycheck-status-dot.inactive {
+  background: var(--white-30);
+}
+
+@keyframes pulse-dot {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.4; }
+}
+
+.paycheck-actions {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.btn-run {
+  background: var(--green-06);
+  color: var(--green);
+  border: 1px solid var(--green-15);
+  padding: 3px var(--space-3);
+  font-size: var(--font-size-xs);
+  border-radius: var(--radius-sm);
+  font-family: var(--font-mono);
+  font-weight: 600;
+  cursor: pointer;
+  transition: all var(--transition-fast);
+  letter-spacing: 0.02em;
+}
+
+.btn-run:hover:not(:disabled) {
+  background: var(--green-15);
+  border-color: var(--green);
+}
+
+.btn-run:disabled {
+  opacity: 0.35;
+  cursor: not-allowed;
+}
+
+/* ========================================
    Utilities
    ======================================== */
 .flex {

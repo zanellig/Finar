@@ -88,4 +88,21 @@ export const api = {
   // Rates
   getRates: () => request<any[]>("/rates"),
   refreshRates: () => request<any[]>("/rates/refresh", { method: "POST" }),
+
+  // Paychecks
+  getPaychecks: () => request<any[]>("/paychecks"),
+  createPaycheck: (data: any) =>
+    request<any>("/paychecks", { method: "POST", body: JSON.stringify(data) }),
+  updatePaycheck: (id: string, data: any) =>
+    request<any>(`/paychecks/${id}`, {
+      method: "PUT",
+      body: JSON.stringify(data),
+    }),
+  runPaycheck: (id: string, data: any) =>
+    request<any>(`/paychecks/${id}/run`, {
+      method: "POST",
+      body: JSON.stringify(data),
+    }),
+  getPaycheckRuns: (id: string, limit = 20, offset = 0) =>
+    request<any[]>(`/paychecks/${id}/runs?limit=${limit}&offset=${offset}`),
 };
