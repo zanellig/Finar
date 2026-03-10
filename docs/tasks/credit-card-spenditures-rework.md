@@ -145,7 +145,7 @@ Lock behavior with tests to prevent regressions across business rules and aggreg
 - Add tests for CCL USD estimate fields when CCL rate exists and when it is missing.
 - Add tests for due-date validation and persistence.
 - Add tests for update/delete rules on partially paid spenditures.
-- Add migration test assertions for new `due_date` column and backfill behavior.
+- Migration tests are kept lean; cover backfill behavior in domain tests if needed.
 
 ### Acceptance Criteria
 - Test suite covers all five requested points.

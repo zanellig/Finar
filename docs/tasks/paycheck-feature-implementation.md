@@ -25,7 +25,7 @@ Match existing architecture:
 ## Non-Goals
 
 - Auth or multi-user permissions.
-- Full payroll/tax calculations.
+- Tax calculations.
 - Employer integrations.
 
 ## Proposed File Layout
@@ -52,7 +52,6 @@ Change:
 Migration rule:
 
 - Define table/index changes in `src/db/schema.ts` and generate SQL via `bun run db:generate`.
-- Only edit migration SQL directly when required to fix broken `db:generate`/`db:migrate` behavior.
 
 ### `paychecks`
 
