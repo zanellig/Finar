@@ -24,7 +24,6 @@ import { Entities } from "./pages/Entities";
 import { Loans } from "./pages/Loans";
 import { Paychecks } from "./pages/Paychecks";
 import { Payments } from "./pages/Payments";
-import { TableTest } from "./pages/test/TableTest";
 
 type Route =
 	| "dashboard"
@@ -33,10 +32,9 @@ type Route =
 	| "credit-cards"
 	| "accounts"
 	| "payments"
-	| "paychecks"
-	| "test";
+	| "paychecks";
 
-const navItems: { route: Route; icon?: IconDefinition; label: string }[] = [
+const navItems: { route: Route; icon: IconDefinition; label: string }[] = [
 	{ route: "dashboard", icon: faHouse, label: "Dashboard" },
 	{ route: "entities", icon: faBuildingColumns, label: "Entidades" },
 	{ route: "accounts", icon: faPiggyBank, label: "Cuentas" },
@@ -44,7 +42,6 @@ const navItems: { route: Route; icon?: IconDefinition; label: string }[] = [
 	{ route: "credit-cards", icon: faCreditCard, label: "Tarjetas" },
 	{ route: "payments", icon: faCircleDollarToSlot, label: "Pagos" },
 	{ route: "paychecks", icon: faMoneyBill1, label: "Sueldos" },
-	{ route: "test", label: "Test" },
 ];
 
 function getRouteFromHash(): Route {
@@ -57,7 +54,6 @@ function getRouteFromHash(): Route {
 		"accounts",
 		"payments",
 		"paychecks",
-		"test",
 	];
 	return valid.includes(hash as Route) ? (hash as Route) : "dashboard";
 }
@@ -114,8 +110,6 @@ function App() {
 				return <Payments />;
 			case "paychecks":
 				return <Paychecks />;
-			case "test":
-				return <TableTest />;
 			default:
 				return <Dashboard />;
 		}
