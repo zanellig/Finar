@@ -1256,11 +1256,12 @@ body {
 .mobile-menu-btn {
   display: none;
   position: fixed;
-  top: var(--space-4);
+  top: var(--space-6);
   left: var(--space-4);
   z-index: 200;
   width: 36px;
   height: 36px;
+  transition: left var(--transition-fast);
   border-radius: var(--radius-md);
   background: var(--black-4);
   border: 1px solid var(--white-10);
@@ -1270,6 +1271,10 @@ body {
   align-items: center;
   justify-content: center;
   font-family: var(--font-display);
+}
+
+.mobile-menu-btn[data-open="true"] {
+  left: calc(var(--sidebar-width) - var(--space-12));
 }
 
 /* ========================================

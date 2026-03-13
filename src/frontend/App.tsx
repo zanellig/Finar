@@ -101,6 +101,7 @@ function App() {
     <div className="app-layout">
       <button
         className="mobile-menu-btn"
+        data-open={String(sidebarOpen)}
         onClick={() => setSidebarOpen(!sidebarOpen)}
         aria-label="Toggle menu"
       >
