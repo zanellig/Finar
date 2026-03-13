@@ -203,7 +203,7 @@ function App() {
 				</div>
 			</nav>
 
-			<main className="main-content" ref={mainContentRef}>
+			<main className="main-content" ref={mainContentRef} tabIndex={-1}>
 				{renderPage()}
 			</main>
 		</div>
