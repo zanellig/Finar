@@ -8,10 +8,11 @@
 
 /* ---- Tailwind ---- */
 @import "tailwindcss";
+@import "./styles/globals.css";
 
 :root {
 	/* ---- Palette ---- */
-	--black: #000000;
+	--black: var(--color-black);
 	--black-2: #060606;
 	--black-3: #0a0a0a;
 	--black-4: #111111;
@@ -30,9 +31,9 @@
 	--white-06: rgba(255, 255, 255, 0.06);
 	--white-04: rgba(255, 255, 255, 0.04);
 
-	--green: #00e87b;
-	--green-bright: #33ff99;
-	--green-dim: #00c066;
+	--green: var(--color-green-400);
+	--green-bright: var(--color-green-500);
+	--green-dim: var(--color-green-600);
 	--green-15: rgba(0, 232, 123, 0.15);
 	--green-10: rgba(0, 232, 123, 0.1);
 	--green-06: rgba(0, 232, 123, 0.06);
@@ -45,35 +46,35 @@
 	--blue-15: rgba(59, 130, 246, 0.15);
 
 	/* ---- Semantic (now handled via Tailwind utility classes) ---- */
-	/* --bg-primary: var(--black); */
-	/* --bg-secondary: var(--black-2); */
-	/* --bg-card: var(--black-4); */
-	/* --bg-card-hover: var(--black-5); */
-	/* --bg-elevated: var(--black-6); */
-	/* --bg-input: var(--black-3); */
-	/* --bg-overlay: rgba(0, 0, 0, 0.8); */
+	--bg-primary: var(--black);
+	--bg-secondary: var(--black-2);
+	--bg-card: var(--black-4);
+	--bg-card-hover: var(--black-5);
+	--bg-elevated: var(--black-6);
+	--bg-input: var(--black-3);
+	--bg-overlay: rgba(0, 0, 0, 0.8);
 
-	/* --text-primary: var(--white-90); */
-	/* --text-secondary: var(--white-50); */
-	/* --text-muted: var(--white-30); */
+	--text-primary: var(--white-90);
+	--text-secondary: var(--white-50);
+	--text-muted: var(--white-30);
 
-	/* --border-color: var(--white-10); */
-	/* --border-subtle: var(--white-06); */
-	/* --border-focus: var(--green); */
+	--border-color: var(--white-10);
+	--border-subtle: var(--white-06);
+	--border-focus: var(--green);
 
-	/* --accent-primary: var(--green); */
-	/* --accent-primary-hover: var(--green-bright); */
-	/* --accent-primary-muted: var(--green-15); */
-	/* --accent-success: var(--green); */
-	/* --accent-success-muted: var(--green-15); */
-	/* --accent-danger: var(--red); */
-	/* --accent-danger-muted: var(--red-15); */
-	/* --accent-warning: var(--yellow); */
-	/* --accent-warning-muted: var(--yellow-15); */
-	/* --accent-cyan: var(--blue); */
-	/* --accent-cyan-muted: var(--blue-15); */
-	/* --accent-purple: var(--white-50); */
-	/* --accent-purple-muted: var(--white-06); */
+	--accent-primary: var(--green);
+	--accent-primary-hover: var(--green-bright);
+	--accent-primary-muted: var(--green-15);
+	--accent-success: var(--green);
+	--accent-success-muted: var(--green-15);
+	--accent-danger: var(--red);
+	--accent-danger-muted: var(--red-15);
+	--accent-warning: var(--yellow);
+	--accent-warning-muted: var(--yellow-15);
+	--accent-cyan: var(--blue);
+	--accent-cyan-muted: var(--blue-15);
+	--accent-purple: var(--white-50);
+	--accent-purple-muted: var(--white-06);
 
 	/* ---- Typography ---- */
 	--font-display: "Sora", sans-serif;
@@ -103,11 +104,11 @@
 	--space-16: 4rem;
 
 	/* ---- Radius — sharp & minimal ---- */
-	/* --radius-sm: 4px; */
-	/* --radius-md: 6px; */
-	/* --radius-lg: 8px; */
-	/* --radius-xl: 10px; */
-	/* --radius-2xl: 12px; */
+	/* --radius-sm: 4px;
+	--radius-md: 6px;
+	--radius-lg: 8px;
+	--radius-xl: 10px;
+	--radius-2xl: 12px; */
 	--radius-full: 9999px;
 
 	/* ---- Shadows — subtle, near-invisible ---- */
@@ -148,7 +149,7 @@ html {
 
 body {
 	font-family: var(--font-display);
-	background: var(--black);
+	background: var(--background);
 	color: var(--text-primary);
 	line-height: 1.5;
 	min-height: 100vh;
@@ -172,7 +173,7 @@ body {
 /* ---- Sidebar ---- */
 .sidebar {
 	width: var(--sidebar-width);
-	background: var(--black);
+	background: var(--background);
 	border-right: 1px solid var(--white-06);
 	display: flex;
 	flex-direction: column;

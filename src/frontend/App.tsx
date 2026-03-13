@@ -1,7 +1,3 @@
-import React, { useEffect, useRef, useState } from "react";
-import { createRoot } from "react-dom/client";
-import "./index.css";
-
 import type { IconDefinition } from "@fortawesome/fontawesome-svg-core";
 import {
 	faCreditCard,
@@ -17,6 +13,9 @@ import {
 	faXmark,
 } from "@fortawesome/free-solid-svg-icons";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
+import React, { StrictMode, useEffect, useRef, useState } from "react";
+import { createRoot } from "react-dom/client";
+import { ThemeProvider } from "./components/theme-provider";
 import { Accounts } from "./pages/Accounts";
 import { CreditCards } from "./pages/CreditCards";
 import { Dashboard } from "./pages/Dashboard";
@@ -211,4 +210,10 @@ function App() {
 }
 
 const root = createRoot(document.getElementById("root") as HTMLElement);
-root.render(<App />);
+root.render(
+	<StrictMode>
+		<ThemeProvider>
+			<App />
+		</ThemeProvider>
+	</StrictMode>,
+);
