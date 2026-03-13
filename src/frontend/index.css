@@ -3,8 +3,6 @@
    A brutally minimal black + green finance tracker
    ======================================== */
 
-/* WARNING: This file is deprecated. Use the output.css file instead. */
-
 /* ---- Fonts ---- */
 @import url("https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@300;400;500;600;700&family=Sora:wght@300;400;500;600;700;800&display=swap");
 
@@ -105,11 +103,11 @@
 	--space-16: 4rem;
 
 	/* ---- Radius — sharp & minimal ---- */
-	--radius-sm: 4px;
-	--radius-md: 6px;
-	--radius-lg: 8px;
-	--radius-xl: 10px;
-	--radius-2xl: 12px;
+	/* --radius-sm: 4px; */
+	/* --radius-md: 6px; */
+	/* --radius-lg: 8px; */
+	/* --radius-xl: 10px; */
+	/* --radius-2xl: 12px; */
 	--radius-full: 9999px;
 
 	/* ---- Shadows — subtle, near-invisible ---- */
