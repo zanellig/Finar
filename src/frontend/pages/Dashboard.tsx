@@ -6,6 +6,7 @@ import {
   accountTypeLabel,
   LoadingPage,
   EmptyState,
+  DataTable,
 } from "../components/shared";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import {
@@ -22,6 +23,15 @@ import {
   faWallet,
 } from "@fortawesome/free-solid-svg-icons";
 
+type RecentPaymentRow = {
+  id: string;
+  created_at: string;
+  type: "loan" | "cc";
+  description: string | null;
+  account_name: string;
+  amount: number;
+};
+
 interface DashboardData {
   net_worth: number;
   total_debt: number;
@@ -34,7 +44,7 @@ interface DashboardData {
   entities: any[];
   loans: any[];
   credit_cards: any[];
-  recent_payments: any[];
+  recent_payments: RecentPaymentRow[];
   exchange_rates: any[];
 }
 
@@ -580,41 +590,83 @@ export function Dashboard() {
                   No hay pagos registrados
                 </div>
               ) : (
-                <table className="data-table">
-                  <thead>
-                    <tr>
-                      <th>Fecha</th>
-                      <th>Tipo</th>
-                      <th>Descripción</th>
-                      <th>Cuenta</th>
-                      <th style={{ textAlign: "right" }}>Monto</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {data.recent_payments.map((p: any) => (
-                      <tr key={p.id}>
-                        <td className="font-mono">
-                          {new Date(p.created_at).toLocaleDateString("es-AR")}
-                        </td>
-                        <td>
+                <DataTable<RecentPaymentRow>
+                  data={data.recent_payments}
+                  columns={[
+                    {
+                      accessorKey: "created_at",
+                      header: "Fecha",
+                      cell: ({ row }) => (
+                        <span className="font-mono">
+                          {new Date(
+                            (row.original as RecentPaymentRow).created_at,
+                          ).toLocaleDateString("es-AR")}
+                        </span>
+                      ),
+                    },
+                    {
+                      accessorKey: "type",
+                      header: "Tipo",
+                      cell: ({ row }) => {
+                        const p = row.original as RecentPaymentRow;
+                        const isLoan = p.type === "loan";
+                        return (
                           <span
-                            className={`badge ${p.type === "loan" ? "badge-danger" : "badge-purple"}`}
+                            className={`badge ${
+                              isLoan ? "badge-danger" : "badge-purple"
+                            }`}
                           >
-                            {p.type === "loan" ? "préstamo" : "tarjeta"}
+                            {isLoan ? "préstamo" : "tarjeta"}
                           </span>
-                        </td>
-                        <td>{p.description || "—"}</td>
-                        <td>{p.account_name}</td>
-                        <td
-                          className="font-mono"
-                          style={{ textAlign: "right", fontWeight: 600 }}
+                        );
+                      },
+                    },
+                    {
+                      accessorKey: "description",
+                      header: "Descripción",
+                      cell: ({ row }) => (
+                        <span>
+                          {(row.original as RecentPaymentRow).description ||
+                            "—"}
+                        </span>
+                      ),
+                    },
+                    {
+                      accessorKey: "account_name",
+                      header: "Cuenta",
+                      cell: ({ row }) => (
+                        <span>
+                          {(row.original as RecentPaymentRow).account_name}
+                        </span>
+                      ),
+                    },
+                    {
+                      accessorKey: "amount",
+                      header: () => (
+                        <span
+                          className="block text-right"
+                          style={{ width: "100%" }}
                         >
-                          {formatCurrency(p.amount)}
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
+                          Monto
+                        </span>
+                      ),
+                      cell: ({ row }) => (
+                        <span
+                          className="font-mono"
+                          style={{
+                            textAlign: "right",
+                            display: "block",
+                            fontWeight: 600,
+                          }}
+                        >
+                          {formatCurrency(
+                            (row.original as RecentPaymentRow).amount,
+                          )}
+                        </span>
+                      ),
+                    },
+                  ]}
+                />
               )}
             </div>
 

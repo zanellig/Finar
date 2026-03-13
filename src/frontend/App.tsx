@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import { createRoot } from "react-dom/client";
 import "./index.css";
 
@@ -24,6 +24,7 @@ import { Entities } from "./pages/Entities";
 import { Loans } from "./pages/Loans";
 import { Paychecks } from "./pages/Paychecks";
 import { Payments } from "./pages/Payments";
+import { TableTest } from "./pages/test/TableTest";
 
 type Route =
 	| "dashboard"
@@ -32,9 +33,10 @@ type Route =
 	| "credit-cards"
 	| "accounts"
 	| "payments"
-	| "paychecks";
+	| "paychecks"
+	| "test";
 
-const navItems: { route: Route; icon: IconDefinition; label: string }[] = [
+const navItems: { route: Route; icon?: IconDefinition; label: string }[] = [
 	{ route: "dashboard", icon: faHouse, label: "Dashboard" },
 	{ route: "entities", icon: faBuildingColumns, label: "Entidades" },
 	{ route: "accounts", icon: faPiggyBank, label: "Cuentas" },
@@ -42,6 +44,7 @@ const navItems: { route: Route; icon: IconDefinition; label: string }[] = [
 	{ route: "credit-cards", icon: faCreditCard, label: "Tarjetas" },
 	{ route: "payments", icon: faCircleDollarToSlot, label: "Pagos" },
 	{ route: "paychecks", icon: faMoneyBill1, label: "Sueldos" },
+	{ route: "test", label: "Test" },
 ];
 
 function getRouteFromHash(): Route {
@@ -54,6 +57,7 @@ function getRouteFromHash(): Route {
 		"accounts",
 		"payments",
 		"paychecks",
+		"test",
 	];
 	return valid.includes(hash as Route) ? (hash as Route) : "dashboard";
 }
@@ -61,6 +65,8 @@ function getRouteFromHash(): Route {
 function App() {
 	const [currentRoute, setCurrentRoute] = useState<Route>(getRouteFromHash);
 	const [sidebarOpen, setSidebarOpen] = useState(false);
+	const sidebarRef = useRef<HTMLElement>(null);
+	const mainContentRef = useRef<HTMLElement>(null);
 
 	useEffect(() => {
 		function onHashChange() {
@@ -82,6 +88,12 @@ function App() {
 		};
 	}, []);
 
+	if (sidebarOpen) {
+		sidebarRef.current?.focus();
+	} else {
+		mainContentRef.current?.focus();
+	}
+
 	function navigate(route: Route) {
 		window.location.hash = route;
 	}
@@ -102,6 +114,8 @@ function App() {
 				return <Payments />;
 			case "paychecks":
 				return <Paychecks />;
+			case "test":
+				return <TableTest />;
 			default:
 				return <Dashboard />;
 		}
@@ -123,7 +137,11 @@ function App() {
 				)}
 			</button>
 
-			<nav className={`sidebar ${sidebarOpen ? "open" : ""}`}>
+			<nav
+				className={`sidebar ${sidebarOpen ? "open" : ""} focus:border-0`}
+				ref={sidebarRef}
+				tabIndex={-1}
+			>
 				<div className="sidebar-header">
 					<div className="sidebar-logo">
 						<div className="sidebar-logo-icon">FT</div>
@@ -191,7 +209,9 @@ function App() {
 				</div>
 			</nav>
 
-			<main className="main-content">{renderPage()}</main>
+			<main className="main-content" ref={mainContentRef}>
+				{renderPage()}
+			</main>
 		</div>
 	);
 }

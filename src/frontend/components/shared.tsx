@@ -10,6 +10,7 @@ import {
   faCircleQuestion,
 } from "@fortawesome/free-solid-svg-icons";
 import type { IconDefinition } from "@fortawesome/fontawesome-svg-core";
+export { DataTable } from "./DataTable";
 
 interface ModalProps {
   isOpen: boolean;

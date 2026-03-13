@@ -7,6 +7,7 @@ import {
   LoadingPage,
   EmptyState,
 } from "../components/shared";
+import { DataTable } from "../components/shared";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import {
   faPlus,
@@ -16,6 +17,17 @@ import {
   faCircleExclamation,
 } from "@fortawesome/free-solid-svg-icons";
 import { faCreditCard } from "@fortawesome/free-regular-svg-icons";
+
+type PaymentRow = {
+  id: string;
+  created_at: string;
+  type: "loan" | "cc";
+  target_name: string;
+  description: string | null;
+  account_name: string;
+  amount: number;
+  account_currency?: string;
+};
 
 /**
  * Compute the "per-period" cost for a credit card — i.e. the sum of all
@@ -62,7 +74,7 @@ function computeCardPeriods(spenditures: any[]): CurrencyPeriodInfo[] {
 }
 
 export function Payments() {
-  const [payments, setPayments] = useState<any[]>([]);
+  const [payments, setPayments] = useState<PaymentRow[]>([]);
   const [accounts, setAccounts] = useState<any[]>([]);
   const [loans, setLoans] = useState<any[]>([]);
   const [cards, setCards] = useState<any[]>([]);
@@ -242,6 +254,86 @@ export function Payments() {
     }
   }
 
+  const columns = useMemo(
+    () => [
+      {
+        accessorKey: "created_at",
+        header: "Fecha",
+        cell: ({ row }: { row: { original: PaymentRow } }) => (
+          <span className="font-mono">
+            {new Date(row.original.created_at).toLocaleDateString("es-AR")}
+          </span>
+        ),
+      },
+      {
+        accessorKey: "type",
+        header: "Tipo",
+        cell: ({ row }: { row: { original: PaymentRow } }) => {
+          const p = row.original;
+          const isLoan = p.type === "loan";
+          return (
+            <span
+              className={`badge ${isLoan ? "badge-danger" : "badge-purple"}`}
+            >
+              <FontAwesomeIcon
+                icon={isLoan ? faHandHoldingDollar : faCreditCard}
+                style={{ marginRight: 4 }}
+              />
+              {isLoan ? "préstamo" : "tarjeta"}
+            </span>
+          );
+        },
+      },
+      {
+        accessorKey: "target_name",
+        header: "Destino",
+        cell: ({ row }: { row: { original: PaymentRow } }) => (
+          <span style={{ fontWeight: 600, color: "var(--white-90)" }}>
+            {row.original.target_name}
+          </span>
+        ),
+      },
+      {
+        accessorKey: "description",
+        header: "Descripción",
+        cell: ({ row }: { row: { original: PaymentRow } }) => (
+          <span style={{ color: "var(--white-30)" }}>
+            {row.original.description || "—"}
+          </span>
+        ),
+      },
+      {
+        accessorKey: "account_name",
+        header: "Cuenta",
+        cell: ({ row }: { row: { original: PaymentRow } }) => (
+          <span>{row.original.account_name}</span>
+        ),
+      },
+      {
+        accessorKey: "amount",
+        header: () => (
+          <span className="block text-right" style={{ width: "100%" }}>
+            Monto
+          </span>
+        ),
+        cell: ({ row }: { row: { original: PaymentRow } }) => (
+          <span
+            className="font-mono"
+            style={{
+              textAlign: "right",
+              display: "block",
+              fontWeight: 700,
+              color: "var(--white-90)",
+            }}
+          >
+            {formatCurrency(row.original.amount, row.original.account_currency)}
+          </span>
+        ),
+      },
+    ],
+    [],
+  );
+
   if (loading) return <LoadingPage />;
 
   return (
@@ -286,57 +378,7 @@ export function Payments() {
         />
       ) : (
         <div className="card">
-          <table className="data-table">
-            <thead>
-              <tr>
-                <th>Fecha</th>
-                <th>Tipo</th>
-                <th>Destino</th>
-                <th>Descripción</th>
-                <th>Cuenta</th>
-                <th style={{ textAlign: "right" }}>Monto</th>
-              </tr>
-            </thead>
-            <tbody>
-              {payments.map((p: any) => (
-                <tr key={p.id}>
-                  <td className="font-mono">
-                    {new Date(p.created_at).toLocaleDateString("es-AR")}
-                  </td>
-                  <td>
-                    <span
-                      className={`badge ${p.type === "loan" ? "badge-danger" : "badge-purple"}`}
-                    >
-                      <FontAwesomeIcon
-                        icon={
-                          p.type === "loan" ? faHandHoldingDollar : faCreditCard
-                        }
-                        style={{ marginRight: 4 }}
-                      />
-                      {p.type === "loan" ? "préstamo" : "tarjeta"}
-                    </span>
-                  </td>
-                  <td style={{ fontWeight: 600, color: "var(--white-90)" }}>
-                    {p.target_name}
-                  </td>
-                  <td style={{ color: "var(--white-30)" }}>
-                    {p.description || "—"}
-                  </td>
-                  <td>{p.account_name}</td>
-                  <td
-                    className="font-mono"
-                    style={{
-                      textAlign: "right",
-                      fontWeight: 700,
-                      color: "var(--white-90)",
-                    }}
-                  >
-                    {formatCurrency(p.amount, p.account_currency)}
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
+          <DataTable<PaymentRow> data={payments} columns={columns} />
         </div>
       )}
 

@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import { api } from "../api";
 import {
   Modal,
@@ -8,6 +8,7 @@ import {
   LoadingPage,
   EmptyState,
 } from "../components/shared";
+import { DataTable } from "../components/shared";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import {
   faPlus,
@@ -15,8 +16,20 @@ import {
   faXmark,
 } from "@fortawesome/free-solid-svg-icons";
 
+type LoanRow = {
+  id: string;
+  name: string;
+  entity_name: string;
+  capital: number;
+  cftea: number;
+  monthly_payment: number;
+  total_owed: number;
+  remaining_installments: number;
+  installments: number;
+};
+
 export function Loans() {
-  const [loans, setLoans] = useState<any[]>([]);
+  const [loans, setLoans] = useState<LoanRow[]>([]);
   const [entities, setEntities] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [showModal, setShowModal] = useState(false);
@@ -104,6 +117,131 @@ export function Loans() {
   }
 
   const preview = getPreview();
+  const columns = useMemo(
+    () => [
+      {
+        accessorKey: "name",
+        header: "Nombre",
+        cell: ({ row }: { row: { original: LoanRow } }) => (
+          <span style={{ fontWeight: 600, color: "var(--white-90)" }}>
+            {row.original.name}
+          </span>
+        ),
+      },
+      {
+        accessorKey: "entity_name",
+        header: "Entidad",
+        cell: ({ row }: { row: { original: LoanRow } }) => (
+          <span className="badge badge-primary">{row.original.entity_name}</span>
+        ),
+      },
+      {
+        accessorKey: "capital",
+        header: () => (
+          <span className="block text-right" style={{ width: "100%" }}>
+            Capital
+          </span>
+        ),
+        cell: ({ row }: { row: { original: LoanRow } }) => (
+          <span className="font-mono" style={{ textAlign: "right", display: "block" }}>
+            {formatCurrency(row.original.capital)}
+          </span>
+        ),
+      },
+      {
+        accessorKey: "cftea",
+        header: () => (
+          <span className="block text-right" style={{ width: "100%" }}>
+            CFTEA
+          </span>
+        ),
+        cell: ({ row }: { row: { original: LoanRow } }) => (
+          <span
+            className="badge badge-warning"
+            style={{ display: "inline-flex", justifyContent: "flex-end" }}
+          >
+            {formatPercent(row.original.cftea)}
+          </span>
+        ),
+      },
+      {
+        accessorKey: "monthly_payment",
+        header: () => (
+          <span className="block text-right" style={{ width: "100%" }}>
+            Cuota
+          </span>
+        ),
+        cell: ({ row }: { row: { original: LoanRow } }) => (
+          <span
+            className="font-mono"
+            style={{
+              textAlign: "right",
+              display: "block",
+              fontWeight: 600,
+              color: "var(--white-90)",
+            }}
+          >
+            {formatCurrency(row.original.monthly_payment)}
+          </span>
+        ),
+      },
+      {
+        accessorKey: "total_owed",
+        header: () => (
+          <span className="block text-right" style={{ width: "100%" }}>
+            Total
+          </span>
+        ),
+        cell: ({ row }: { row: { original: LoanRow } }) => (
+          <span
+            className="font-mono"
+            style={{
+              textAlign: "right",
+              display: "block",
+              color: "var(--white-30)",
+            }}
+          >
+            {formatCurrency(row.original.total_owed)}
+          </span>
+        ),
+      },
+      {
+        id: "installments",
+        header: () => (
+          <span className="block text-center" style={{ width: "100%" }}>
+            Cuotas
+          </span>
+        ),
+        cell: ({ row }: { row: { original: LoanRow } }) => {
+          const loan = row.original;
+          return (
+            <span
+              className={`badge ${
+                loan.remaining_installments > 0 ? "badge-danger" : "badge-success"
+              }`}
+            >
+              {loan.remaining_installments}/{loan.installments}
+            </span>
+          );
+        },
+      },
+      {
+        id: "actions",
+        header: "",
+        cell: ({ row }: { row: { original: LoanRow } }) => (
+          <button
+            className="btn btn-ghost btn-sm"
+            onClick={() => handleDelete(row.original.id)}
+            title="Eliminar"
+          >
+            <FontAwesomeIcon icon={faXmark} />
+          </button>
+        ),
+      },
+    ],
+    [],
+  );
+
   if (loading) return <LoadingPage />;
 
   return (
@@ -145,74 +283,7 @@ export function Loans() {
         />
       ) : (
         <div className="card">
-          <table className="data-table">
-            <thead>
-              <tr>
-                <th>Nombre</th>
-                <th>Entidad</th>
-                <th style={{ textAlign: "right" }}>Capital</th>
-                <th style={{ textAlign: "right" }}>CFTEA</th>
-                <th style={{ textAlign: "right" }}>Cuota</th>
-                <th style={{ textAlign: "right" }}>Total</th>
-                <th style={{ textAlign: "center" }}>Cuotas</th>
-                <th></th>
-              </tr>
-            </thead>
-            <tbody>
-              {loans.map((loan) => (
-                <tr key={loan.id}>
-                  <td style={{ fontWeight: 600, color: "var(--white-90)" }}>
-                    {loan.name}
-                  </td>
-                  <td>
-                    <span className="badge badge-primary">
-                      {loan.entity_name}
-                    </span>
-                  </td>
-                  <td className="font-mono" style={{ textAlign: "right" }}>
-                    {formatCurrency(loan.capital)}
-                  </td>
-                  <td style={{ textAlign: "right" }}>
-                    <span className="badge badge-warning">
-                      {formatPercent(loan.cftea)}
-                    </span>
-                  </td>
-                  <td
-                    className="font-mono"
-                    style={{
-                      textAlign: "right",
-                      fontWeight: 600,
-                      color: "var(--white-90)",
-                    }}
-                  >
-                    {formatCurrency(loan.monthly_payment)}
-                  </td>
-                  <td
-                    className="font-mono"
-                    style={{ textAlign: "right", color: "var(--white-30)" }}
-                  >
-                    {formatCurrency(loan.total_owed)}
-                  </td>
-                  <td style={{ textAlign: "center" }}>
-                    <span
-                      className={`badge ${loan.remaining_installments > 0 ? "badge-danger" : "badge-success"}`}
-                    >
-                      {loan.remaining_installments}/{loan.installments}
-                    </span>
-                  </td>
-                  <td>
-                    <button
-                      className="btn btn-ghost btn-sm"
-                      onClick={() => handleDelete(loan.id)}
-                      title="Eliminar"
-                    >
-                      <FontAwesomeIcon icon={faXmark} />
-                    </button>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
+          <DataTable<LoanRow> data={loans} columns={columns} />
         </div>
       )}
 
