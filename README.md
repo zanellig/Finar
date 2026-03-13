@@ -18,6 +18,7 @@ Server runs on `http://localhost:3000`.
 - `bun run build:linux|build:macos|build:windows` - platform binaries
 - `bun run build:all` - build all platform targets
 - `bun run db:generate` - generate Drizzle migration SQL from schema changes
+- `bun run db:embed` - regenerate embedded migration index for compiled binaries
 - `bun run db:migrate` - apply pending migrations with Drizzle Kit
 - `bun test` - run all tests
 

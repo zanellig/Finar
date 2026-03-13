@@ -1,11 +1,11 @@
 import { Database } from "bun:sqlite";
 import { drizzle, type BunSQLiteDatabase } from "drizzle-orm/bun-sqlite";
-import { migrate } from "drizzle-orm/bun-sqlite/migrator";
-import { readMigrationFiles } from "drizzle-orm/migrator";
-import { join } from "node:path";
+import type { MigrationMeta } from "drizzle-orm/migrator";
+import { createHash } from "node:crypto";
+import { readFileSync } from "node:fs";
 import * as schema from "./schema";
+import { embeddedMigrations } from "./embedded-migrations";
 
-const MIGRATIONS_DIR = join(import.meta.dir, "migrations");
 const DRIZZLE_MIGRATIONS_TABLE = "__drizzle_migrations";
 const LEGACY_TABLES = [
   "entities",
@@ -16,6 +16,34 @@ const LEGACY_TABLES = [
   "payments",
   "exchange_rates",
 ] as const;
+
+type MigrationJournal = {
+  entries: Array<{
+    tag: string;
+    when: number;
+    breakpoints?: boolean;
+  }>;
+};
+
+function loadEmbeddedMigrations(): MigrationMeta[] {
+  const journalRaw = readFileSync(embeddedMigrations.journalPath, "utf8");
+  const journal = JSON.parse(journalRaw) as MigrationJournal;
+
+  return journal.entries.map((entry) => {
+    const sqlPath = embeddedMigrations.files[entry.tag];
+    if (!sqlPath) {
+      throw new Error(`Missing embedded migration file for "${entry.tag}".`);
+    }
+
+    const sqlText = readFileSync(sqlPath, "utf8");
+    return {
+      sql: sqlText.split("--> statement-breakpoint"),
+      folderMillis: entry.when,
+      hash: createHash("sha256").update(sqlText).digest("hex"),
+      bps: Boolean(entry.breakpoints),
+    };
+  });
+}
 
 function tableExists(db: Database, tableName: string): boolean {
   return (
@@ -39,17 +67,11 @@ function isLegacySchemaDatabase(db: Database): boolean {
   return LEGACY_TABLES.every((tableName) => tableExists(db, tableName));
 }
 
-function baselineLegacySchema(db: Database): void {
-  if (hasAppliedMigrations(db) || !isLegacySchemaDatabase(db)) {
-    return;
-  }
+function baselineLegacySchema(db: Database, migrations: MigrationMeta[]): void {
+  if (hasAppliedMigrations(db) || !isLegacySchemaDatabase(db)) return;
 
-  const [initialMigration] = readMigrationFiles({
-    migrationsFolder: MIGRATIONS_DIR,
-  });
-  if (!initialMigration) {
-    return;
-  }
+  const [initialMigration] = migrations;
+  if (!initialMigration) return;
 
   db.run(`
     CREATE TABLE IF NOT EXISTS ${DRIZZLE_MIGRATIONS_TABLE} (
@@ -72,12 +94,19 @@ export function runMigrations(
   orm: BunSQLiteDatabase<typeof schema>,
   rawDb?: Database,
 ): void {
+  const migrations = loadEmbeddedMigrations();
   if (rawDb) {
     // Backward-compat for DBs created before Drizzle migrations were introduced.
-    baselineLegacySchema(rawDb);
+    baselineLegacySchema(rawDb, migrations);
   }
 
-  migrate(orm, { migrationsFolder: MIGRATIONS_DIR });
+  const ormAny = orm as unknown as {
+    dialect: { migrate: (m: MigrationMeta[], session: unknown, config?: unknown) => void };
+    session: unknown;
+  };
+  ormAny.dialect.migrate(migrations, ormAny.session, {
+    migrationsTable: DRIZZLE_MIGRATIONS_TABLE,
+  });
 }
 
 /**

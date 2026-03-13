@@ -5,12 +5,13 @@
   "private": true,
   "scripts": {
     "dev": "bun --hot src/server.ts",
-    "build": "bun build --compile --minify --outfile=fintracker src/server.ts",
-    "build:linux": "bun build --compile --minify --target=bun-linux-x64 --outfile=dist/fintracker-linux src/server.ts",
-    "build:macos": "bun build --compile --minify --target=bun-darwin-arm64 --outfile=dist/fintracker-macos src/server.ts",
-    "build:windows": "bun build --compile --minify --target=bun-windows-x64 --windows-hide-console --outfile=dist/fintracker.exe src/server.ts",
+    "db:embed": "bun scripts/generate-embedded-migrations.ts",
+    "build": "bun run db:embed && bun build --compile --minify --outfile=fintracker src/server.ts",
+    "build:linux": "bun run db:embed && bun build --compile --minify --target=bun-linux-x64 --outfile=dist/fintracker-linux src/server.ts",
+    "build:macos": "bun run db:embed && bun build --compile --minify --target=bun-darwin-arm64 --outfile=dist/fintracker-macos src/server.ts",
+    "build:windows": "bun run db:embed && bun build --compile --minify --target=bun-windows-x64 --windows-hide-console --outfile=dist/fintracker.exe src/server.ts",
     "build:all": "bun run build:linux && bun run build:macos && bun run build:windows",
-    "db:generate": "drizzle-kit generate",
+    "db:generate": "drizzle-kit generate && bun run db:embed",
     "db:migrate": "drizzle-kit migrate"
   },
   "devDependencies": {
