@@ -64,7 +64,7 @@ const features = [
 ];
 
 function formatARS(n: number): string {
-  return `$ ${n.toLocaleString("es-AR", { minimumFractionDigits: 0, maximumFractionDigits: 0 })}`;
+  return `$ ${n.toLocaleString("es-AR", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 }
 
 function Landing() {
@@ -89,7 +89,7 @@ function Landing() {
       <nav className="landing-nav">
         <a href="/landing" className="nav-brand">
           <div className="nav-logo">FA</div>
-          <span className="nav-wordmark">FinAR</span>
+          <span className="nav-wordmark">Finar</span>
         </a>
         <div className="nav-links">
           <a href="#features" className="nav-link">
@@ -204,7 +204,7 @@ function Landing() {
         <h2 className="section-title">Todo lo que necesitás</h2>
         <p className="section-sub">
           Diseñado para las finanzas personales en Argentina. Pesos, dólares,
-          cuotas e impuestos — todo integrado.
+          cuotas e impuestos: <strong>todo integrado</strong>.
         </p>
 
         <div className="features-grid">
@@ -266,7 +266,7 @@ function Landing() {
             <div className="notice-title">Etapa Alpha</div>
             <div className="notice-text">
               Si bien nos aseguramos de que todo cálculo financiero e
-              interacción con la aplicación sea extremadamente preciso, FinAR se
+              interacción con la aplicación sea extremadamente preciso, Finar se
               encuentra actualmente en fase de pruebas (Alpha) y es posible que
               encuentres errores o comportamientos inesperados durante su uso.
             </div>
@@ -302,7 +302,7 @@ function Landing() {
       <footer className="landing-footer">
         <div className="footer-left">
           <div className="footer-logo">FA</div>
-          <span className="footer-text">FinAR v0.0.1</span>
+          <span className="footer-text">Finar v0.0.1</span>
         </div>
         <div className="footer-right">
           Cogniar &copy; {new Date().getFullYear()}
