@@ -7,6 +7,7 @@ import {
   LoadingPage,
   EmptyState,
 } from "../components/shared";
+import { DataTable } from "../components/shared";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import {
   faPlus,
@@ -42,6 +43,16 @@ const runStatusLabel: Record<string, string> = {
   applied: "aplicado",
   skipped: "omitido",
   failed: "fallido",
+};
+
+type PaycheckRunRow = {
+  id: string;
+  run_at: string | null;
+  amount: number;
+  currency: string;
+  account_balance_before: number;
+  account_balance_after: number;
+  status: string;
 };
 
 function formatDatetime(dt: string | null): string {
@@ -107,7 +118,7 @@ export function Paychecks() {
 
   // Run history state
   const [expandedId, setExpandedId] = useState<string | null>(null);
-  const [runs, setRuns] = useState<any[]>([]);
+  const [runs, setRuns] = useState<PaycheckRunRow[]>([]);
   const [loadingRuns, setLoadingRuns] = useState(false);
   const [runningId, setRunningId] = useState<string | null>(null);
 
@@ -449,53 +460,85 @@ export function Paychecks() {
                       sin ejecuciones aún
                     </p>
                   ) : (
-                    <table className="data-table">
-                      <thead>
-                        <tr>
-                          <th>fecha</th>
-                          <th>monto</th>
-                          <th>saldo antes</th>
-                          <th>saldo después</th>
-                          <th>estado</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {runs.map((run: any) => (
-                          <tr key={run.id}>
-                            <td
+                    <DataTable<PaycheckRunRow>
+                      data={runs}
+                      columns={[
+                        {
+                          accessorKey: "run_at",
+                          header: "fecha",
+                          cell: ({ row }) => (
+                            <span
                               className="font-mono"
                               style={{
                                 fontSize: "var(--font-size-xs)",
                               }}
                             >
-                              {formatDatetime(run.run_at)}
-                            </td>
-                            <td className="font-mono currency-positive">
-                              {formatCurrency(run.amount, run.currency)}
-                            </td>
-                            <td className="font-mono">
-                              {formatCurrency(
-                                run.account_balance_before,
-                                run.currency,
+                              {formatDatetime(
+                                (row.original as PaycheckRunRow).run_at,
                               )}
-                            </td>
-                            <td className="font-mono">
-                              {formatCurrency(
-                                run.account_balance_after,
-                                run.currency,
-                              )}
-                            </td>
-                            <td>
+                            </span>
+                          ),
+                        },
+                        {
+                          accessorKey: "amount",
+                          header: "monto",
+                          cell: ({ row }) => {
+                            const run = row.original as PaycheckRunRow;
+                            return (
+                              <span className="font-mono currency-positive">
+                                {formatCurrency(run.amount, run.currency)}
+                              </span>
+                            );
+                          },
+                        },
+                        {
+                          accessorKey: "account_balance_before",
+                          header: "saldo antes",
+                          cell: ({ row }) => {
+                            const run = row.original as PaycheckRunRow;
+                            return (
+                              <span className="font-mono">
+                                {formatCurrency(
+                                  run.account_balance_before,
+                                  run.currency,
+                                )}
+                              </span>
+                            );
+                          },
+                        },
+                        {
+                          accessorKey: "account_balance_after",
+                          header: "saldo después",
+                          cell: ({ row }) => {
+                            const run = row.original as PaycheckRunRow;
+                            return (
+                              <span className="font-mono">
+                                {formatCurrency(
+                                  run.account_balance_after,
+                                  run.currency,
+                                )}
+                              </span>
+                            );
+                          },
+                        },
+                        {
+                          accessorKey: "status",
+                          header: "estado",
+                          cell: ({ row }) => {
+                            const run = row.original as PaycheckRunRow;
+                            return (
                               <span
-                                className={`badge ${runStatusBadge[run.status] || "badge-primary"}`}
+                                className={`badge ${
+                                  runStatusBadge[run.status] || "badge-primary"
+                                }`}
                               >
                                 {runStatusLabel[run.status] || run.status}
                               </span>
-                            </td>
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
+                            );
+                          },
+                        },
+                      ]}
+                    />
                   )}
                 </div>
               )}
