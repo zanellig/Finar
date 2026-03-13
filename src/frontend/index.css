@@ -44,36 +44,36 @@
 	--blue: #3b82f6;
 	--blue-15: rgba(59, 130, 246, 0.15);
 
-	/* ---- Semantic ---- */
-	--bg-primary: var(--black);
-	--bg-secondary: var(--black-2);
-	--bg-card: var(--black-4);
-	--bg-card-hover: var(--black-5);
-	--bg-elevated: var(--black-6);
-	--bg-input: var(--black-3);
-	--bg-overlay: rgba(0, 0, 0, 0.8);
+	/* ---- Semantic (now handled via Tailwind utility classes) ---- */
+	/* --bg-primary: var(--black); */
+	/* --bg-secondary: var(--black-2); */
+	/* --bg-card: var(--black-4); */
+	/* --bg-card-hover: var(--black-5); */
+	/* --bg-elevated: var(--black-6); */
+	/* --bg-input: var(--black-3); */
+	/* --bg-overlay: rgba(0, 0, 0, 0.8); */
 
-	--text-primary: var(--white-90);
-	--text-secondary: var(--white-50);
-	--text-muted: var(--white-30);
+	/* --text-primary: var(--white-90); */
+	/* --text-secondary: var(--white-50); */
+	/* --text-muted: var(--white-30); */
 
-	--border-color: var(--white-10);
-	--border-subtle: var(--white-06);
-	--border-focus: var(--green);
+	/* --border-color: var(--white-10); */
+	/* --border-subtle: var(--white-06); */
+	/* --border-focus: var(--green); */
 
-	--accent-primary: var(--green);
-	--accent-primary-hover: var(--green-bright);
-	--accent-primary-muted: var(--green-15);
-	--accent-success: var(--green);
-	--accent-success-muted: var(--green-15);
-	--accent-danger: var(--red);
-	--accent-danger-muted: var(--red-15);
-	--accent-warning: var(--yellow);
-	--accent-warning-muted: var(--yellow-15);
-	--accent-cyan: var(--blue);
-	--accent-cyan-muted: var(--blue-15);
-	--accent-purple: var(--white-50);
-	--accent-purple-muted: var(--white-06);
+	/* --accent-primary: var(--green); */
+	/* --accent-primary-hover: var(--green-bright); */
+	/* --accent-primary-muted: var(--green-15); */
+	/* --accent-success: var(--green); */
+	/* --accent-success-muted: var(--green-15); */
+	/* --accent-danger: var(--red); */
+	/* --accent-danger-muted: var(--red-15); */
+	/* --accent-warning: var(--yellow); */
+	/* --accent-warning-muted: var(--yellow-15); */
+	/* --accent-cyan: var(--blue); */
+	/* --accent-cyan-muted: var(--blue-15); */
+	/* --accent-purple: var(--white-50); */
+	/* --accent-purple-muted: var(--white-06); */
 
 	/* ---- Typography ---- */
 	--font-display: "Sora", sans-serif;
