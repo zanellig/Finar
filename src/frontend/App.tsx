@@ -68,7 +68,18 @@ function App() {
 			setSidebarOpen(false);
 		}
 		window.addEventListener("hashchange", onHashChange);
-		return () => window.removeEventListener("hashchange", onHashChange);
+
+		function onCtrlBPressed(e: KeyboardEvent) {
+			if ((e.ctrlKey || e.metaKey) && e.key === "b") {
+				e.preventDefault();
+				setSidebarOpen((prev) => !prev);
+			}
+		}
+		window.addEventListener("keydown", onCtrlBPressed, { capture: true });
+		return () => {
+			window.removeEventListener("hashchange", onHashChange);
+			window.removeEventListener("keydown", onCtrlBPressed, { capture: true });
+		};
 	}, []);
 
 	function navigate(route: Route) {
