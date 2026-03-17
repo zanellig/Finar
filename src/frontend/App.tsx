@@ -16,6 +16,18 @@ import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import React, { StrictMode, useEffect, useRef, useState } from "react";
 import { createRoot } from "react-dom/client";
 import { ThemeProvider } from "./components/theme-provider";
+import {
+	Sidebar,
+	SidebarContent,
+	SidebarFooter,
+	SidebarGroup,
+	SidebarGroupContent,
+	SidebarGroupLabel,
+	SidebarHeader,
+	SidebarMenuButton,
+	SidebarProvider,
+	SidebarTrigger,
+} from "./components/ui/sidebar";
 import { Accounts } from "./pages/Accounts";
 import { CreditCards } from "./pages/CreditCards";
 import { Dashboard } from "./pages/Dashboard";
@@ -116,91 +128,91 @@ function App() {
 
 	return (
 		<div className="app-layout">
-			<button
-				type="button"
-				className="mobile-menu-btn"
-				data-open={String(sidebarOpen)}
-				onClick={() => setSidebarOpen(!sidebarOpen)}
-				aria-label="Toggle menu"
-			>
-				{sidebarOpen ? (
-					<FontAwesomeIcon icon={faXmark} />
-				) : (
-					<FontAwesomeIcon icon={faBars} />
-				)}
-			</button>
+			<SidebarTrigger />
 
-			<nav
-				className={`sidebar ${sidebarOpen ? "open" : ""} focus:border-0`}
-				ref={sidebarRef}
-				tabIndex={-1}
-			>
-				<div className="sidebar-header">
+			<Sidebar className="sidebar">
+				<SidebarHeader className="sidebar-header">
 					<div className="sidebar-logo">
 						<div className="sidebar-logo-icon">FT</div>
 						<span className="sidebar-logo-text">FinTracker</span>
 					</div>
-				</div>
-				<div className="sidebar-nav">
-					<div className="sidebar-section-label">overview</div>
-					{navItems.slice(0, 1).map((item) => (
-						<button
-							type="button"
-							key={item.route}
-							className={`nav-item ${currentRoute === item.route ? "active" : ""}`}
-							onClick={() => navigate(item.route)}
-						>
-							<span className="nav-icon">
-								<FontAwesomeIcon icon={item.icon} />
-							</span>
-							{item.label}
-						</button>
-					))}
+				</SidebarHeader>
+				<SidebarContent className="sidebar-nav">
+					<SidebarGroup>
+						<SidebarGroupLabel className="sidebar-section-label">
+							Overview
+						</SidebarGroupLabel>
+						<SidebarGroupContent>
+							{navItems.slice(0, 1).map((item) => (
+								<SidebarMenuButton
+									key={item.route}
+									className={`nav-item ${currentRoute === item.route ? "active" : ""}`}
+									onClick={() => navigate(item.route)}
+								>
+									<span className="nav-icon">
+										<FontAwesomeIcon icon={item.icon} />
+									</span>
+									{item.label}
+								</SidebarMenuButton>
+							))}
+						</SidebarGroupContent>
+					</SidebarGroup>
 
-					<div className="sidebar-section-label">gestión</div>
-					{navItems.slice(1, 3).map((item) => (
-						<button
-							type="button"
-							key={item.route}
-							className={`nav-item ${currentRoute === item.route ? "active" : ""}`}
-							onClick={() => navigate(item.route)}
-						>
-							<span className="nav-icon">
-								<FontAwesomeIcon icon={item.icon} />
-							</span>
-							{item.label}
-						</button>
-					))}
+					<SidebarGroup>
+						<SidebarGroupLabel className="sidebar-section-label">
+							Gestión
+						</SidebarGroupLabel>
+						<SidebarGroupContent>
+							{navItems.slice(1, 3).map((item) => (
+								<SidebarMenuButton
+									key={item.route}
+									className={`nav-item ${currentRoute === item.route ? "active" : ""}`}
+									onClick={() => navigate(item.route)}
+								>
+									<span className="nav-icon">
+										<FontAwesomeIcon icon={item.icon} />
+									</span>
+									{item.label}
+								</SidebarMenuButton>
+							))}
+						</SidebarGroupContent>
+					</SidebarGroup>
 
-					<div className="sidebar-section-label">finanzas</div>
-					{navItems.slice(3).map((item) => (
-						<button
-							type="button"
-							key={item.route}
-							className={`nav-item ${currentRoute === item.route ? "active" : ""}`}
-							onClick={() => navigate(item.route)}
-						>
-							<span className="nav-icon">
-								<FontAwesomeIcon icon={item.icon} />
-							</span>
-							{item.label}
-						</button>
-					))}
-				</div>
-
-				<div
-					style={{
-						padding: "var(--space-4) var(--space-5)",
-						borderTop: "1px solid var(--white-06)",
-						fontFamily: "var(--font-mono)",
-						fontSize: "10px",
-						color: "var(--white-15)",
-						letterSpacing: "0.05em",
-					}}
-				>
-					v0.0.1
-				</div>
-			</nav>
+					<SidebarGroup>
+						<SidebarGroupLabel className="sidebar-section-label">
+							Finanzas
+						</SidebarGroupLabel>
+						<SidebarGroupContent>
+							{navItems.slice(3).map((item) => (
+								<SidebarMenuButton
+									key={item.route}
+									className={`nav-item ${currentRoute === item.route ? "active" : ""}`}
+									onClick={() => navigate(item.route)}
+								>
+									<span className="nav-icon">
+										<FontAwesomeIcon icon={item.icon} />
+									</span>
+									{item.label}
+								</SidebarMenuButton>
+							))}
+						</SidebarGroupContent>
+					</SidebarGroup>
+				</SidebarContent>
+				<SidebarFooter>
+					<div
+						style={{
+							padding: "var(--space-4) var(--space-5)",
+							borderTop: "1px solid var(--white-06)",
+							fontFamily: "var(--font-mono)",
+							fontSize: "10px",
+							color: "var(--white-15)",
+							letterSpacing: "0.05em",
+						}}
+					>
+						v0.0.1
+					</div>
+				</SidebarFooter>
+			</Sidebar>
 
 			<main className="main-content" ref={mainContentRef} tabIndex={-1}>
 				{renderPage()}
@@ -213,7 +225,9 @@ const root = createRoot(document.getElementById("root") as HTMLElement);
 root.render(
 	<StrictMode>
 		<ThemeProvider>
-			<App />
+			<SidebarProvider>
+				<App />
+			</SidebarProvider>
 		</ThemeProvider>
 	</StrictMode>,
 );
