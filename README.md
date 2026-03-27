@@ -1,4 +1,4 @@
-![Thumbnail](./.github/assets/thumbnail.png)
+![Thumbnail](./.github/assets/thumbnail_upscaled.png)
 
 > Proyecto destinado a democratizar las finanzas personales de los Argentinos. Totalmente local, libre y gratuito.
 
