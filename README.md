@@ -2,6 +2,9 @@
 
 > Proyecto destinado a democratizar las finanzas personales de los Argentinos. Totalmente local, libre y gratuito.
 
+> [!IMPORTANT]
+> This project is in **early alpha**. You may encounter bugs, unexpected behaviors, and drastic/breaking changes between releases.
+
 Built with Bun, React, Drizzle ORM, SQLite, and Zod.
 
 ## Quick Start
