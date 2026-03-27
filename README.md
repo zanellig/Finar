@@ -1,6 +1,6 @@
-# Finar
+![Thumbnail](./.github/assets/thumbnail.png)
 
-Proyecto destinado a democratizar las finanzas personales de los Argentinos. Totalmente local, libre y gratuito.
+> Proyecto destinado a democratizar las finanzas personales de los Argentinos. Totalmente local, libre y gratuito.
 
 Built with Bun, React, Drizzle ORM, SQLite, and Zod.
 
