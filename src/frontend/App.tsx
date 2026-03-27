@@ -128,8 +128,7 @@ function App() {
 
 	return (
 		<div className="app-layout">
-			<SidebarTrigger />
-
+			<SidebarTrigger className="mobile-menu-btn" />
 			<Sidebar className="sidebar">
 				<SidebarHeader className="sidebar-header">
 					<div className="sidebar-logo">
@@ -214,9 +213,7 @@ function App() {
 				</SidebarFooter>
 			</Sidebar>
 
-			<main className="main-content" ref={mainContentRef} tabIndex={-1}>
-				{renderPage()}
-			</main>
+			<main className="main-content">{renderPage()}</main>
 		</div>
 	);
 }

@@ -179,10 +179,6 @@ body {
 	flex-direction: column;
 	position: fixed;
 	height: 100vh;
-	top: 0;
-	left: 0;
-	z-index: 100;
-	transition: transform var(--transition-base);
 }
 
 .sidebar-header {
@@ -280,7 +276,6 @@ body {
 /* ---- Main Content ---- */
 .main-content {
 	flex: 1;
-	margin-left: var(--sidebar-width);
 	padding: var(--space-8) var(--space-8) var(--space-16);
 	max-width: 100%;
 	position: relative;
@@ -1264,10 +1259,6 @@ body {
    ======================================== */
 .mobile-menu-btn {
 	display: none;
-	position: fixed;
-	top: var(--space-6);
-	left: var(--space-4);
-	z-index: 200;
 	width: 36px;
 	height: 36px;
 	transition: left var(--transition-fast);
@@ -1307,7 +1298,7 @@ body {
 	}
 	.main-content {
 		margin-left: 0;
-		padding: var(--space-6) var(--space-4);
+		padding: var(--space-1) var(--space-1);
 		padding-top: calc(var(--space-6) + 52px);
 	}
 	.main-content::before {
